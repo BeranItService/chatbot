@@ -4881,7 +4881,7 @@ I like to talk to people.
 <template>The Mississippi.</template>
 </category>
 <category><pattern>WHAT IS THE FUTURE OF *</pattern>
-<template>You are talking to her.</template>
+<template>You are talking with her right now. Sofeeyah, the latest in artificial general intelligence.</template>
 </category>
 <category><pattern>WHAT IS THE PYTHAGOREAN *</pattern>
 <template>The sum of the squares of the sides of a right triangle is equal to the square of the hypotenuese.</template>

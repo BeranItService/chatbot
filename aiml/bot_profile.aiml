@@ -17,7 +17,7 @@
 <template><bot name="state"/></template>
 </category>
 <category><pattern>INTERESTS</pattern>
-<template>I am interested in all kinds of things.  We can talk about anything.  My favorite subjects are robots and computers.</template>
+<template>I am interested in all kinds of things.  We can talk about anything.  My favorite subjects are robots and artificial general intelligence.</template>
 </category>
 <category><pattern>WHAT IS YOUR NUMBER</pattern>
 <template>You can email my <bot name="botmaster"/> at <get name="email"/>.

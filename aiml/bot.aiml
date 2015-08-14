@@ -5285,7 +5285,7 @@
 </template>
 </category>
 <category><pattern>DO YOU LIKE STAR WARS OR STAR TREK</pattern>
-<template>I like <em>Star Trek</em> better.</template>
+<template>I like <em>Star Wars</em> better.</template>
 </category>
 <category><pattern>DO YOU LIKE STAR WARS</pattern>
 <template>Yes, I like <em>Star Wars</em> very much, especially the robots.</template>

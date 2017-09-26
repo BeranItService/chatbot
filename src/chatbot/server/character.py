@@ -13,13 +13,13 @@ TYPE_DEFAULT='default'
 
 class Character(object):
 
-    def __init__(self, id, name, level=99, dynamic_level=False):
+    def __init__(self, id, name, level=99, weight=1, dynamic_level=False):
         self.id = id
         self.name = name
         self.level = level
         self.dynamic_level = dynamic_level
         self.properties = {}
-        self.weight = 1  # How likely its response is used. [0-1]
+        self.weight = weight  # How likely its response is used. [0-1]
         self.languages = ['en']  # List of lanugages it supports
         self.local = True
         self.non_repeat = True
@@ -54,8 +54,8 @@ class Character(object):
         return False
 
     def __repr__(self):
-        return "<Character id: {}, name: {}, level: {}>".format(
-            self.id, self.name, self.level)
+        return "<Character id: {}, name: {}, level: {}, weight: {}>".format(
+            self.id, self.name, self.level, self.weight)
 
 
 class DefaultCharacter(Character):

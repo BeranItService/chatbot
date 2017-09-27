@@ -169,11 +169,13 @@ def do_translate(text, target_language='en'):
             result['detectedSourceLanguage'] = 'zh'
         if result['detectedSourceLanguage'] == target_language:
             translated_text = text
+            translated = False
             logger.info("No need to translate. The source language is the same as the target language.")
         else:
             translated_text = result['translatedText']
+            translated = True
             logger.info('Translation: {}'.format(translated_text.encode('utf-8')))
-        return translated_text
+        return translated, translated_text
     except Exception as ex:
         logger.error(ex)
         logger.error(traceback.format_exc())

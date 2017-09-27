@@ -172,6 +172,11 @@ def do_translate(text, target_language='en'):
         logger.error(ex)
         logger.error(traceback.format_exc())
 
+def detect_language(text):
+    translate_client = translate.Client()
+    result = translate_client.detect_language(text)
+    return result
+
 
 if __name__ == '__main__':
     logging.basicConfig()
@@ -197,3 +202,5 @@ if __name__ == '__main__':
     print get_detected_object(100)
     print do_translate("你好")
     print do_translate("о Кларе с Карлом во мраке все раки шумели в драке")
+    print detect_language("你好")
+    print detect_language("о Кларе с Карлом во мраке все раки шумели в драке")

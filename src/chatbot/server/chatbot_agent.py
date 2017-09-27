@@ -494,9 +494,17 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
         answer = str_cleanup(response.get('text', ''))
 
     if not query and hit_character is not None:
-        translate = kwargs.get('translate')
-        if translate:
-            translated, answer = do_translate(answer, lang)
+        target_language = kwargs.get('target_language')
+        translated = False
+        if target_language:
+            try:
+                translated, translated_answer = do_translate(answer, target_language)
+                answer = translated_answer
+                response['text'] = answer
+            except Exception as ex:
+                logger.error(ex)
+                translated = False
+
         sess.add(question, answer, AnsweredBy=hit_character.id,
                     User=user, BotName=botname, Trace=cross_trace,
                     Revision=REVISION, Lang=lang, ModQuestion=_question,

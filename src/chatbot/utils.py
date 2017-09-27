@@ -160,25 +160,22 @@ def get_detected_object(timedelta=10):
             return item
 
 def do_translate(text, target_language='en'):
-    try:
-        if isinstance(text, six.binary_type):
-            text = text.decode('utf-8')
-        client = translate.Client()
-        result = client.translate(text, target_language=target_language)
-        if result['detectedSourceLanguage'] == 'zh-CN':
-            result['detectedSourceLanguage'] = 'zh'
-        if result['detectedSourceLanguage'] == target_language:
-            translated_text = text
-            translated = False
-            logger.info("No need to translate. The source language is the same as the target language.")
-        else:
-            translated_text = result['translatedText']
-            translated = True
-            logger.info('Translation: {}'.format(translated_text.encode('utf-8')))
-        return translated, translated_text
-    except Exception as ex:
-        logger.error(ex)
-        logger.error(traceback.format_exc())
+    if isinstance(text, six.binary_type):
+        text = text.decode('utf-8')
+    client = translate.Client()
+    logger.info('Translating {}, target language code {}'.format(text.encode('utf-8'), target_language))
+    result = client.translate(text, target_language=target_language)
+    if result['detectedSourceLanguage'] == 'zh-CN':
+        result['detectedSourceLanguage'] = 'zh'
+    if result['detectedSourceLanguage'] == target_language:
+        translated_text = text
+        translated = False
+        logger.info("No need to translate. The source language is the same as the target language.")
+    else:
+        translated_text = result['translatedText']
+        translated = True
+        logger.info('Translation: {}'.format(translated_text.encode('utf-8')))
+    return translated, translated_text
 
 def detect_language(text):
     translate_client = translate.Client()

@@ -386,13 +386,13 @@ class Chatbot():
         if config.set_context:
             self.client.set_context(config.set_context)
         self.client.set_marker(config.marker)
+        self.client.set_target_language(config.target_language)
         self.mute = config.mute
         self.insert_behavior = config.insert_behavior
 
         if config.reset_session:
             self.client.reset_session()
             config.reset_session = Fales
-
         return config
 
 if __name__ == '__main__':

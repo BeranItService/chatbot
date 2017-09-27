@@ -100,11 +100,10 @@ def _chat():
     query = query.lower() == 'true'
     request_id = request.headers.get('X-Request-Id')
     marker = data.get('marker', 'default')
-    translate = data.get('translate', 'false')
-    translate = translate.lower() == 'true'
+    target_language = data.get('target_language')
     response, ret = ask(
         question, lang, session, query, request_id=request_id, marker=marker,
-        translate=translate)
+        target_language=target_language)
     return Response(json_encode({'ret': ret, 'response': response}),
                     mimetype="application/json")
 

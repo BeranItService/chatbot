@@ -99,6 +99,7 @@ Parameters:
 - *lang* - Language
 - *session* - Session ID
 - *query* - It's a try ask (True or False)
+- *target_language (optional)* - The target language. If it's set, it will translate to that language
 
 Return:
 - *ret* - Return code

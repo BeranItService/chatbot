@@ -55,6 +55,7 @@ class Client(cmd.Cmd, object):
         self.response_listener = response_listener
         self.test = test
         self.marker = 'default'
+        self.translate = False
         self.prompt = '[me]: '
         self.botname = botname
         self.chatbot_ip = host
@@ -132,6 +133,7 @@ class Client(cmd.Cmd, object):
             "Auth": self.key,
             "query": query,
             "marker": self.marker,
+            "translate": self.translate,
         }
         headers = {
             'X-Request-ID': request_id or str(uuid.uuid1())
@@ -334,6 +336,18 @@ For example, port 8001
     def set_marker(self, marker):
         if marker:
             self.marker = marker
+
+    def set_translate(self, translate):
+        if translate:
+            self.translate = translate
+
+    def do_translate(self, line):
+        translate = line.strip()
+        if translate in ['on', 'True', 'true']:
+            self.translate = True
+            self.stdout.write("Set translate on\n")
+        elif translate in ['off', 'False', 'false']:
+            self.stdout.write("Set translate off\n")
 
     def do_rw(self, line):
         try:

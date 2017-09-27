@@ -164,9 +164,15 @@ def do_translate(text, target_language='en'):
         if isinstance(text, six.binary_type):
             text = text.decode('utf-8')
         client = translate.Client()
-        translation = client.translate(text, target_language=target_language)
-        translated_text = translation['translatedText']
-        logger.info('Translation: {}'.format(translated_text.encode('utf-8')))
+        result = client.translate(text, target_language=target_language)
+        if result['detectedSourceLanguage'] == 'zh-CN':
+            result['detectedSourceLanguage'] = 'zh'
+        if result['detectedSourceLanguage'] == target_language:
+            translated_text = text
+            logger.info("No need to translate. The source language is the same as the target language.")
+        else:
+            translated_text = result['translatedText']
+            logger.info('Translation: {}'.format(translated_text.encode('utf-8')))
         return translated_text
     except Exception as ex:
         logger.error(ex)
@@ -175,6 +181,8 @@ def do_translate(text, target_language='en'):
 def detect_language(text):
     translate_client = translate.Client()
     result = translate_client.detect_language(text)
+    if result['language'] == 'zh-CN':
+        result['language'] == 'zh'
     return result
 
 

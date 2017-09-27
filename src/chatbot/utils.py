@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import re
 import os
 import requests
@@ -7,8 +9,15 @@ import json
 import pandas as pd
 import numpy as np
 import datetime as dt
+import six
+import traceback
 
 logger = logging.getLogger('hr.chatbot.utils')
+
+try:
+    from google.cloud import translate
+except ImportError:
+    logger.error("Can't import google translate")
 
 OPENWEATHERAPPID = os.environ.get('OPENWEATHERAPPID')
 CITY_LIST_FILE = os.environ.get('CITY_LIST_FILE')
@@ -150,6 +159,20 @@ def get_detected_object(timedelta=10):
             logger.warn("Get item {}".format(item))
             return item
 
+def do_translate(text, target_language='en'):
+    try:
+        if isinstance(text, six.binary_type):
+            text = text.decode('utf-8')
+        client = translate.Client()
+        translation = client.translate(text, target_language=target_language)
+        translated_text = translation['translatedText']
+        logger.info('Translation: {}'.format(translated_text.encode('utf-8')))
+        return translated_text
+    except Exception as ex:
+        logger.error(ex)
+        logger.error(traceback.format_exc())
+
+
 if __name__ == '__main__':
     logging.basicConfig()
     text = '''My mind is built using Hanson Robotics' character engine, a simulated humanlike brain that runs inside a personal computer. Within this framework, Hanson has modelled Phil's personality and emotions, allowing you to talk with Phil through me, using speech recognition, natural language understanding, and computer vision such as face recognition, and animation of the robotic muscles in my face.'''
@@ -171,5 +194,6 @@ if __name__ == '__main__':
     print check_online('duckduckgo.com', 80)
     print get_emotion()
 
-
     print get_detected_object(100)
+    print do_translate("你好")
+    print do_translate("о Кларе с Карлом во мраке все раки шумели в драке")

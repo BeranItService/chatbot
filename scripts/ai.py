@@ -15,7 +15,7 @@ import random
 
 from jinja2 import Template
 from chatbot.polarity import Polarity
-from hr_msgs.msg import ChatMessage
+from hr_msgs.msg import ChatMessage, TTS
 from std_msgs.msg import String
 from audio_stream.msg import audiodata
 import dynamic_reconfigure
@@ -92,7 +92,7 @@ class Chatbot():
             'tts_control', String, queue_size=1)
 
         self._response_publisher = rospy.Publisher(
-            'chatbot_responses', String, queue_size=1)
+            'chatbot_responses', TTS, queue_size=1)
 
         # send communication non-verbal blink message to behavior
         self._blink_publisher = rospy.Publisher(
@@ -168,7 +168,8 @@ class Chatbot():
             rospy.sleep(0.5)
             self._affect_publisher.publish(String('sad'))
             if not self.mute:
-                self._response_publisher.publish(String('Okay'))
+                self._response_publisher.publish(
+                    TTS(text='Okay', lang=chat_message.lang))
             return
 
         # Handle chatbot command
@@ -281,6 +282,7 @@ class Chatbot():
 
         text = response.get('text')
         emotion = response.get('emotion')
+        lang = response.get('lang', 'en-US')
 
         orig_text = response.get('orig_text')
         if orig_text:
@@ -351,7 +353,7 @@ class Chatbot():
 
         if not self.mute:
             self._blink_publisher.publish('chat_saying')
-            self._response_publisher.publish(String(text))
+            self._response_publisher.publish(TTS(text=text, lang=lang))
 
         if rospy.has_param('{}/context'.format(self.node_name)):
             rospy.delete_param('{}/context'.format(self.node_name))

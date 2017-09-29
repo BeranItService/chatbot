@@ -563,6 +563,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     return (response dict, return code)
     """
     response = {'text': '', 'emotion': '', 'botid': '', 'botname': ''}
+    response['lang'] = lang
 
     sess = session_manager.get_session(sid)
     if sess is None:

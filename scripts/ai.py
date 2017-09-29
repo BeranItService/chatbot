@@ -13,10 +13,9 @@ import uuid
 import pandas as pd
 import random
 
-from jinja2 import Template, Environment, meta
-
+from jinja2 import Template
 from chatbot.polarity import Polarity
-from chatbot.msg import ChatMessage
+from hr_msgs.msg import ChatMessage
 from std_msgs.msg import String
 from audio_stream.msg import audiodata
 import dynamic_reconfigure
@@ -122,9 +121,7 @@ class Chatbot():
         self._sentiment_active = active
 
     def ask(self, chatmessages, query=False):
-        lang = rospy.get_param('lang', None)
-        if lang:
-            self.client.lang = lang
+        self.client.lang = chatmessages.lang
 
         persons = rospy.get_param('/face_recognizer/current_persons', '')
         if persons:

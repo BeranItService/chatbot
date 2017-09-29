@@ -20,7 +20,7 @@ class Character(object):
         self.dynamic_level = dynamic_level
         self.properties = {}
         self.weight = 1  # How likely its response is used. [0-1]
-        self.languages = ['en']  # List of lanugages it supports
+        self.languages = ['en-US']  # List of lanugages it supports
         self.local = True
         self.non_repeat = True
         self.logger = logging.getLogger('hr.chatbot.character.{}'.format(id))

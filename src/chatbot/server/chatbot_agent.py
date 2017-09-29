@@ -501,6 +501,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                 translated, translated_answer = do_translate(answer, target_language)
                 answer = translated_answer
                 response['text'] = answer
+                response['lang'] = target_language
             except Exception as ex:
                 logger.error(ex)
                 translated = False

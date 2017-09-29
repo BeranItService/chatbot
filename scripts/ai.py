@@ -121,7 +121,11 @@ class Chatbot():
         self._sentiment_active = active
 
     def ask(self, chatmessages, query=False):
-        self.client.lang = chatmessages.lang
+        if chatmessages and len(chatmessages) > 0:
+            self.client.lang = chatmessages[0].lang
+        else:
+            logger.error("No language is specified")
+            return
 
         persons = rospy.get_param('/face_recognizer/current_persons', '')
         if persons:

@@ -229,7 +229,7 @@ class Chatbot():
         rows = []
         columns = ['RequestID', 'Index', 'Source', 'AudioPath', 'Transcript']
         for i, msg in enumerate(chatmessages):
-            audio = os.path.basename(msg.extra)
+            audio = os.path.basename(msg.audio_path)
             row = {
                 'RequestID': request_id,
                 'Index': i,

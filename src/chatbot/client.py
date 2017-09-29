@@ -55,6 +55,7 @@ class Client(cmd.Cmd, object):
         self.response_listener = response_listener
         self.test = test
         self.marker = 'default'
+        self.target_language = None
         self.prompt = '[me]: '
         self.botname = botname
         self.chatbot_ip = host
@@ -133,6 +134,9 @@ class Client(cmd.Cmd, object):
             "query": query,
             "marker": self.marker,
         }
+        if self.target_language:
+            params["target_language"] = self.target_language
+
         headers = {
             'X-Request-ID': request_id or str(uuid.uuid1())
         }
@@ -334,6 +338,18 @@ For example, port 8001
     def set_marker(self, marker):
         if marker:
             self.marker = marker
+
+    def set_target_language(self, target_language):
+        if target_language:
+            self.target_language = target_language
+        else:
+            self.target_language = None
+        logger.info("Set target language to {}\n".format(self.target_language))
+
+    def do_target_language(self, line):
+        target_language = line.strip()
+        self.set_target_language(target_language)
+        self.stdout.write("Set target language to {}\n".format(self.target_language))
 
     def do_rw(self, line):
         try:
@@ -652,7 +668,8 @@ Syntax: rc key,key2,key3,...
             self.start_session()
         params = {
             "Auth": self.key,
-            "session": self.session
+            "session": self.session,
+            "lang": self.lang,
         }
         response = requests.get(
             '{}/get_context'.format(self.root_url), params=params)

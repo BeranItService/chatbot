@@ -29,7 +29,8 @@ from session import ChatSessionManager
 session_manager = ChatSessionManager()
 DISABLE_QUIBBLE = True
 
-from chatbot.utils import shorten, str_cleanup, get_weather, parse_weather
+from chatbot.utils import (shorten, str_cleanup, get_weather, parse_weather,
+        do_translate)
 from chatbot.words2num import words2num
 from chatbot.server.character import TYPE_AIML, TYPE_CS
 from operator import add, sub, mul, truediv, pow
@@ -170,18 +171,19 @@ def remove_context(keys, sid):
             pass
     return True, "Context is updated"
 
-def get_context(sid):
+def get_context(sid, lang):
     sess = session_manager.get_session(sid)
     if sess is None:
         return False, "No session"
+    characters = get_responding_characters(lang, sid)
     context = {}
-    for c in CHARACTERS:
+    for c in characters:
         if c.type != TYPE_AIML and c.type != TYPE_CS:
             continue
         try:
             context.update(c.get_context(sess))
-        except Exception:
-            pass
+        except Exception as ex:
+            logger.error("Get context error, {}".format(ex))
     for k in context.keys():
         if k.startswith('_'):
             del context[k]
@@ -492,10 +494,22 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
         answer = str_cleanup(response.get('text', ''))
 
     if not query and hit_character is not None:
+        target_language = kwargs.get('target_language')
+        translated = False
+        if target_language:
+            try:
+                translated, translated_answer = do_translate(answer, target_language)
+                answer = translated_answer
+                response['text'] = answer
+            except Exception as ex:
+                logger.error(ex)
+                translated = False
+
         sess.add(question, answer, AnsweredBy=hit_character.id,
                     User=user, BotName=botname, Trace=cross_trace,
                     Revision=REVISION, Lang=lang, ModQuestion=_question,
-                    RequestId=request_id,Marker=kwargs.get('marker'))
+                    RequestId=request_id,Marker=kwargs.get('marker'),
+                    Translate=translated)
 
         sess.last_used_character = hit_character
 

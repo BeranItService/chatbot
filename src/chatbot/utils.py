@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import re
 import os
 import requests
@@ -7,8 +9,15 @@ import json
 import pandas as pd
 import numpy as np
 import datetime as dt
+import six
+import traceback
 
 logger = logging.getLogger('hr.chatbot.utils')
+
+try:
+    from google.cloud import translate
+except ImportError:
+    logger.error("Can't import google translate")
 
 OPENWEATHERAPPID = os.environ.get('OPENWEATHERAPPID')
 CITY_LIST_FILE = os.environ.get('CITY_LIST_FILE')
@@ -150,6 +159,32 @@ def get_detected_object(timedelta=10):
             logger.warn("Get item {}".format(item))
             return item
 
+def do_translate(text, target_language='en'):
+    if isinstance(text, six.binary_type):
+        text = text.decode('utf-8')
+    client = translate.Client()
+    logger.info('Translating {}, target language code {}'.format(text.encode('utf-8'), target_language))
+    result = client.translate(text, target_language=target_language)
+    if result['detectedSourceLanguage'] == 'zh-CN':
+        result['detectedSourceLanguage'] = 'zh'
+    if result['detectedSourceLanguage'] == target_language:
+        translated_text = text
+        translated = False
+        logger.info("No need to translate. The source language is the same as the target language.")
+    else:
+        translated_text = result['translatedText']
+        translated = True
+        logger.info('Translation: {}'.format(translated_text.encode('utf-8')))
+    return translated, translated_text
+
+def detect_language(text):
+    translate_client = translate.Client()
+    result = translate_client.detect_language(text)
+    if result['language'] == 'zh-CN':
+        result['language'] == 'zh'
+    return result
+
+
 if __name__ == '__main__':
     logging.basicConfig()
     text = '''My mind is built using Hanson Robotics' character engine, a simulated humanlike brain that runs inside a personal computer. Within this framework, Hanson has modelled Phil's personality and emotions, allowing you to talk with Phil through me, using speech recognition, natural language understanding, and computer vision such as face recognition, and animation of the robotic muscles in my face.'''
@@ -171,5 +206,8 @@ if __name__ == '__main__':
     print check_online('duckduckgo.com', 80)
     print get_emotion()
 
-
     print get_detected_object(100)
+    print do_translate("你好")
+    print do_translate("о Кларе с Карлом во мраке все раки шумели в драке")
+    print detect_language("你好")
+    print detect_language("о Кларе с Карлом во мраке все раки шумели в драке")

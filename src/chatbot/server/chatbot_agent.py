@@ -497,24 +497,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
         answer = str_cleanup(response.get('text', ''))
 
     if not query and hit_character is not None:
-        target_language = kwargs.get('target_language')
-        translated = False
-        if target_language:
-            try:
-                translated, translated_answer = do_translate(answer, target_language)
-                answer = translated_answer
-                response['text'] = answer
-                response['lang'] = target_language
-            except Exception as ex:
-                logger.error(ex)
-                translated = False
-
-        sess.add(question, answer, AnsweredBy=hit_character.id,
-                    User=user, BotName=botname, Trace=cross_trace,
-                    Revision=REVISION, Lang=lang, ModQuestion=_question,
-                    RequestId=request_id,Marker=kwargs.get('marker'),
-                    Translate=translated)
-
+        response['AnsweredBy'] = hit_character.id
         sess.last_used_character = hit_character
 
         if is_question(answer.lower().strip()):
@@ -525,6 +508,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
         else:
             sess.open_character = None
 
+    response['ModQuestion'] = _question
     response['trace'] = cross_trace
     return response
 
@@ -590,13 +574,20 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     if not question or not question.strip():
         return response, INVALID_QUESTION
 
+    botname = sess.sdata.botname
+    user = sess.sdata.user
+    response['OriginalQuestion'] = question
+
+    input_translated = False
+    output_translated = False
+    fallback_mode = False
     responding_characters = get_responding_characters(lang, sid)
     if not responding_characters and lang != FALLBACK_LANG:
         logger.warn("Use %s medium language", FALLBACK_LANG)
         responding_characters = get_responding_characters(FALLBACK_LANG, sid)
+        fallback_mode = True
         try:
-            translated, question = do_translate(question, FALLBACK_LANG)
-            kwargs['target_language'] = lang
+            input_translated, question = do_translate(question, FALLBACK_LANG)
         except Exception as ex:
             logger.error(ex)
             return response, TRANSLATE_ERROR
@@ -630,7 +621,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         logger.info("Triggered new topic")
 
     logger.info("Responding characters {}".format(responding_characters))
-    if translated:
+    if fallback_mode:
         _response = _ask_characters(
             responding_characters, question, FALLBACK_LANG, sid, query, request_id, **kwargs)
     else:
@@ -659,7 +650,30 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
 
     if _response is not None and _response.get('text'):
         response.update(_response)
-        logger.info("Ask {}, response {}".format(question, response))
+        response['OriginalAnswer'] = response.get('text')
+        if input_translated:
+            # Translate back
+            try:
+                answer = response.get('text')
+                output_translated, answer = do_translate(answer, lang)
+                response['text'] = answer
+            except Exception as ex:
+                logger.error(ex)
+                output_translated = False
+                return response, TRANSLATE_ERROR
+
+        sess.add(response['OriginalQuestion'], response.get('text'), AnsweredBy=response['AnsweredBy'],
+                    User=user, BotName=botname, Trace=response['trace'],
+                    Revision=REVISION, Lang=lang,
+                    ModQuestion=response['ModQuestion'],
+                    RequestId=request_id,Marker=kwargs.get('marker'),
+                    TranslateInput=input_translated,
+                    TranslateOutput=output_translated,
+                    TranslatedQuestion=question,
+                    OriginalAnswer=response['OriginalAnswer'],
+        )
+
+        logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))
         return response, SUCCESS
     else:
         logger.error("No pattern match")

@@ -197,14 +197,14 @@ def do_translate(text, target_language='en-US'):
     result = client.translate(text, target_language=lang)
 
     detected_source_language = CHATBOT_LANGUAGE_DICT[result['detectedSourceLanguage']]
-    if detected_source_language == target_language:
+    if target_language in detected_source_language:
         translated_text = text
         translated = False
         logger.info("No need to translate. The source language is the same as the target language.")
     else:
         translated_text = result['translatedText']
         translated = True
-        logger.info('Translation: %s', translated_text)
+        logger.info('Translation: %s (source %s %s)', translated_text, detected_source_language)
 
     if change_encoding and isinstance(translated_text, six.text_type):
         translated_text = translated_text.encode('utf-8')

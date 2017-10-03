@@ -17,6 +17,7 @@ WRONG_CHARACTER_NAME = 1
 NO_PATTERN_MATCH = 2
 INVALID_SESSION = 3
 INVALID_QUESTION = 4
+TRANSLATE_ERROR = 5
 
 logger = logging.getLogger('hr.chatbot.server.chatbot_agent')
 
@@ -28,6 +29,7 @@ REVISION = os.environ.get('HR_CHATBOT_REVISION')
 from session import ChatSessionManager
 session_manager = ChatSessionManager()
 DISABLE_QUIBBLE = True
+FALLBACK_LANG = 'en-US'
 
 from chatbot.utils import (shorten, str_cleanup, get_weather, parse_weather,
         do_translate)
@@ -234,7 +236,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
     botname = getattr(data, 'botname')
     weights = get_weights(characters, sess)
     weighted_characters = zip(characters, weights)
-    logger.info("Weights {}".format(weighted_characters))
+    logger.info("Weights {}".format(weights))
 
     _question = preprocessing(question, lang, sess)
     response = {}
@@ -331,7 +333,8 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
             sess.cache.that_question = None
 
     def _ask_character(stage, character, weight, good_match=False, reuse=False):
-        logger.info("Asking character {} in stage {}".format(character.id, stage))
+        logger.info("Asking character {} \"{}\" in stage {}".format(
+            character.id, _question, stage))
 
         if not reuse and character.id in used_charaters:
             cross_trace.append((character.id, stage, 'Skip used tier'))
@@ -588,6 +591,16 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         return response, INVALID_QUESTION
 
     responding_characters = get_responding_characters(lang, sid)
+    if not responding_characters and lang != FALLBACK_LANG:
+        logger.warn("Use %s medium language", FALLBACK_LANG)
+        responding_characters = get_responding_characters(FALLBACK_LANG, sid)
+        try:
+            translated, question = do_translate(question, FALLBACK_LANG)
+            kwargs['target_language'] = lang
+        except Exception as ex:
+            logger.error(ex)
+            return response, TRANSLATE_ERROR
+
     if not responding_characters:
         logger.error("Wrong characer name")
         return response, WRONG_CHARACTER_NAME
@@ -617,8 +630,12 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         logger.info("Triggered new topic")
 
     logger.info("Responding characters {}".format(responding_characters))
-    _response = _ask_characters(
-        responding_characters, question, lang, sid, query, request_id, **kwargs)
+    if translated:
+        _response = _ask_characters(
+            responding_characters, question, FALLBACK_LANG, sid, query, request_id, **kwargs)
+    else:
+        _response = _ask_characters(
+            responding_characters, question, lang, sid, query, request_id, **kwargs)
 
     if not query:
         # Sync session data

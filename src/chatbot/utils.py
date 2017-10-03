@@ -24,6 +24,25 @@ CITY_LIST_FILE = os.environ.get('CITY_LIST_FILE')
 
 cities = None
 
+CHATBOT_LANGUAGE_DICT = {
+    'am': ['am-ET'],
+    'ar': ['ar-IL', 'ar-JO', 'ar-AE', 'ar-BH', 'ar-DZ', 'ar-SA', 'ar-IQ', 'ar-KW', 'ar-MA', 'ar-TN', 'ar-OM', 'ar-PS', 'ar-QA', 'ar-LB', 'ar-EG'],
+    'zh-CN': ['cmn-Hans-CN', 'cmn-Hans-HK'],
+    'zh-TW': ['cmn-Hant-TW', 'yue-Hant-HK'],
+    'nl': ['nl-NL'],
+    'en': ['en-AU', 'en-CA', 'en-GH', 'en-GB', 'en-IN', 'en-IE', 'en-KE', 'en-NZ', 'en-NG', 'en-PH', 'en-ZA', 'en-TZ', 'en-US'],
+    'fr': ['fr-CA', 'fr-FR'],
+    'de': ['de-DE'],
+    'hi': ['hi-IN'],
+    'it': ['it-IT'],
+    'ja': ['ja-JP'],
+    'ko': ['ko-KR'],
+    'lt': ['lt-LT'],
+    'pt': ['pt-BR', 'pt-PT'],
+    'ru': ['ru-RU'],
+    'es': ['es-AR', 'es-BO', 'es-CL', 'es-CO', 'es-CR', 'es-EC', 'es-SV', 'es-ES', 'es-US', 'es-GT', 'es-HN', 'es-MX', 'es-NI', 'es-PA', 'es-PY', 'es-PE', 'es-PR', 'es-DO', 'es-UY', 'es-VE'],
+}
+
 def query_city_info(name):
     global cities
     if cities is None:
@@ -159,22 +178,37 @@ def get_detected_object(timedelta=10):
             logger.warn("Get item {}".format(item))
             return item
 
-def do_translate(text, target_language='en'):
+def do_translate(text, target_language='en-US'):
+    lang = None
+    for key, value in CHATBOT_LANGUAGE_DICT.iteritems():
+        if target_language in value:
+            lang = key
+    if lang is None:
+        logger.error("Target language '%s' is not supported.", target_language)
+        return False, text
+
+    change_encoding = False
     if isinstance(text, six.binary_type):
+        change_encoding = True
         text = text.decode('utf-8')
+
     client = translate.Client()
-    logger.info('Translating {}, target language code {}'.format(text.encode('utf-8'), target_language))
-    result = client.translate(text, target_language=target_language)
-    if result['detectedSourceLanguage'] == 'zh-CN':
-        result['detectedSourceLanguage'] = 'zh'
-    if result['detectedSourceLanguage'] == target_language:
+    logger.info('Translating %s, target language code %s(%s)', text, target_language, lang)
+    result = client.translate(text, target_language=lang)
+
+    detected_source_language = CHATBOT_LANGUAGE_DICT[result['detectedSourceLanguage']]
+    if detected_source_language == target_language:
         translated_text = text
         translated = False
         logger.info("No need to translate. The source language is the same as the target language.")
     else:
         translated_text = result['translatedText']
         translated = True
-        logger.info('Translation: {}'.format(translated_text.encode('utf-8')))
+        logger.info('Translation: %s', translated_text)
+
+    if change_encoding and isinstance(translated_text, six.text_type):
+        translated_text = translated_text.encode('utf-8')
+
     return translated, translated_text
 
 def detect_language(text):
@@ -207,7 +241,5 @@ if __name__ == '__main__':
     print get_emotion()
 
     print get_detected_object(100)
-    print do_translate("你好")
-    print do_translate("о Кларе с Карлом во мраке все раки шумели в драке")
-    print detect_language("你好")
-    print detect_language("о Кларе с Карлом во мраке все раки шумели в драке")
+    print do_translate(u"你好", 'ru-RU')[1]
+    print do_translate(u"о Кларе с Карлом во мраке все раки шумели в драке", 'cmn-Hans-CN')[1]

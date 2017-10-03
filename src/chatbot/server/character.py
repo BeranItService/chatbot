@@ -54,8 +54,8 @@ class Character(object):
         return False
 
     def __repr__(self):
-        return "<Character id: {}, name: {}, level: {}, weight: {}>".format(
-            self.id, self.name, self.level, self.weight)
+        return "<Character id: {}, name: {}, level: {}, weight: {}, langs: {}>".format(
+            self.id, self.name, self.level, self.weight, self.languages)
 
 
 class DefaultCharacter(Character):

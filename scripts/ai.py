@@ -389,7 +389,6 @@ class Chatbot():
         if config.set_context:
             self.client.set_context(config.set_context)
         self.client.set_marker(config.marker)
-        self.client.set_target_language(config.target_language)
         self.mute = config.mute
         self.insert_behavior = config.insert_behavior
 

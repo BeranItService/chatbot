@@ -55,7 +55,6 @@ class Client(cmd.Cmd, object):
         self.response_listener = response_listener
         self.test = test
         self.marker = 'default'
-        self.target_language = None
         self.prompt = '[me]: '
         self.botname = botname
         self.chatbot_ip = host
@@ -63,7 +62,7 @@ class Client(cmd.Cmd, object):
         self.chatbot_url = 'http://{}:{}'.format(
             self.chatbot_ip, self.chatbot_port)
         self.root_url = '{}/{}'.format(self.chatbot_url, self.VERSION)
-        self.lang = 'en'
+        self.lang = 'en-US'
         self.session = None
         self.last_response = None
         self.timer = None
@@ -134,8 +133,6 @@ class Client(cmd.Cmd, object):
             "query": query,
             "marker": self.marker,
         }
-        if self.target_language:
-            params["target_language"] = self.target_language
 
         headers = {
             'X-Request-ID': request_id or str(uuid.uuid1())
@@ -309,10 +306,10 @@ For example, port 8001
             self.stdout.write("Set lang to {}\n".format(self.lang))
         else:
             self.stdout.write(
-                "Current lang {}. \nSet lang by 'lang [en|zh]'\n".format(self.lang))
+                "Current lang {}. \nSet lang by 'lang <languange code>'\n".format(self.lang))
 
     def help_lang(self):
-        self.stdout.write("Set language. [en|zh]\n")
+        self.stdout.write("Set language.\n")
 
     def do_c(self, line):
         reset_session()
@@ -338,18 +335,6 @@ For example, port 8001
     def set_marker(self, marker):
         if marker:
             self.marker = marker
-
-    def set_target_language(self, target_language):
-        if target_language:
-            self.target_language = target_language
-        else:
-            self.target_language = None
-        logger.info("Set target language to {}\n".format(self.target_language))
-
-    def do_target_language(self, line):
-        target_language = line.strip()
-        self.set_target_language(target_language)
-        self.stdout.write("Set target language to {}\n".format(self.target_language))
 
     def do_rw(self, line):
         try:
@@ -423,7 +408,7 @@ Reset the weight of tiers to their defaults.
         params = {
             "user": self.user,
             "Auth": self.key,
-            "lang": 'en'
+            "lang": 'en-US'
         }
         try:
             r = requests.post(

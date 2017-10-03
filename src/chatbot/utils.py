@@ -204,7 +204,7 @@ def do_translate(text, target_language='en-US'):
     else:
         translated_text = result['translatedText']
         translated = True
-        logger.info('Translation: %s (source %s %s)', translated_text, detected_source_language)
+        logger.info('Translation: %s (source %s)', translated_text, detected_source_language)
 
     if change_encoding and isinstance(translated_text, six.text_type):
         translated_text = translated_text.encode('utf-8')

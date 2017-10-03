@@ -583,9 +583,9 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     fallback_mode = False
     responding_characters = get_responding_characters(lang, sid)
     if not responding_characters and lang != FALLBACK_LANG:
-        logger.warn("Use %s medium language", FALLBACK_LANG)
-        responding_characters = get_responding_characters(FALLBACK_LANG, sid)
         fallback_mode = True
+        logger.warn("Use %s medium language, in fallback mode", FALLBACK_LANG)
+        responding_characters = get_responding_characters(FALLBACK_LANG, sid)
         try:
             input_translated, question = do_translate(question, FALLBACK_LANG)
         except Exception as ex:
@@ -651,15 +651,13 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     if _response is not None and _response.get('text'):
         response.update(_response)
         response['OriginalAnswer'] = response.get('text')
-        if input_translated:
-            # Translate back
+        if fallback_mode:
             try:
                 answer = response.get('text')
                 output_translated, answer = do_translate(answer, lang)
                 response['text'] = answer
             except Exception as ex:
                 logger.error(ex)
-                output_translated = False
                 return response, TRANSLATE_ERROR
 
         sess.add(response['OriginalQuestion'], response.get('text'), AnsweredBy=response['AnsweredBy'],

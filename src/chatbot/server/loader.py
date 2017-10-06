@@ -15,6 +15,7 @@ dyn_properties = {}
 
 def load_dyn_properties():
     global dyn_properties
+    logger.info('Loading location & weather properties')
     location = get_location()
     if location:
         if 'city' in location:
@@ -30,7 +31,10 @@ def load_dyn_properties():
         weather_prop = parse_weather(weather)
     if weather_prop:
         dyn_properties.update(weather_prop)
-    logger.info("Update dynamic properties {}".format(dyn_properties))
+    if dyn_properties:
+        logger.info("Dynamic properties {}".format(dyn_properties))
+    else:
+        logger.warn("No dynamic properties")
 
 load_dyn_properties()
 

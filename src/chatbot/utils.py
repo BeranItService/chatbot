@@ -96,19 +96,31 @@ def get_location():
     port = os.environ.get('LOCATION_SERVER_PORT', '8004')
     location = None
     try:
-        ip = subprocess.check_output(['dig', '+short', 'myip.opendns.com', '@resolver1.opendns.com']).strip()
-        location = requests.get('http://{host}:{port}/json/{ip}'.format(host=host, port=port, ip=ip)).json()
+        logger.info("Getting public IP address")
+        ip = subprocess.check_output(['wget', '--timeout', '2', '-qO-', 'ipinfo.io/ip']).strip()
+        if not ip:
+            logger.error("Public IP is invalid")
+            return None
+        logger.info("Getting location")
+        response = requests.get('http://{host}:{port}/json/{ip}'.format(host=host, port=port, ip=ip), timeout=1)
+        location = response.json()
+        if not location:
+            logger.error("Can't get location")
+            return None
         if location['country_code'] == 'HK':
             location['city'] = 'Hong Kong'
         if location['country_code'] == 'TW':
             location['city'] = 'Taiwan'
         if location['country_code'] == 'MO':
             location['city'] = 'Macau'
+    except subprocess.CalledProcessError as ex:
+        logger.warn("Can't find public IP address")
     except Exception as ex:
-        pass
+        logger.error(ex)
     return location
 
 def get_weather(city):
+    logger.info("Getting weather")
     if city:
         try:
             response = requests.get(

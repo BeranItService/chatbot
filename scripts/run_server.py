@@ -18,6 +18,7 @@ import re
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(CWD, '../src'))
 
+logger = logging.getLogger('hr.chatbot.server')
 if 'HR_CHARACTER_PATH' not in os.environ:
     os.environ['HR_CHARACTER_PATH'] = os.path.join(CWD, 'characters')
 
@@ -75,7 +76,6 @@ VERSION = 'v1.1'
 ROOT = '/{}'.format(VERSION)
 INCOMING_DIR = os.path.expanduser('~/.hr/aiml/incoming')
 
-logger = logging.getLogger('hr.chatbot.server')
 app.config['UPLOAD_FOLDER'] = os.path.expanduser('~/.hr/aiml')
 
 

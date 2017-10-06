@@ -350,6 +350,8 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
 
         if weight == 0:
             cross_trace.append((character.id, stage, 'Disabled'))
+            logger.warn("Character \"{}\" in stage {} is disabled".format(
+                character.id, stage))
             return False, None, None
 
         response = character.respond(_question, lang, sess, query, request_id)

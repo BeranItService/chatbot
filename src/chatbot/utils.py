@@ -102,7 +102,7 @@ def get_location():
             logger.error("Public IP is invalid")
             return None
         logger.info("Getting location")
-        response = requests.get('http://{host}:{port}/json/{ip}'.format(host=host, port=port, ip=ip), timeout=1)
+        response = requests.get('http://{host}:{port}/json/{ip}'.format(host=host, port=port, ip=ip), timeout=2)
         location = response.json()
         if not location:
             logger.error("Can't get location")

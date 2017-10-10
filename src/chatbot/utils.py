@@ -49,9 +49,10 @@ def query_city_info(name):
         if CITY_LIST_FILE:
             with open(CITY_LIST_FILE) as f:
                 cities = json.load(f)
-    for city in cities:
-        if name.title() in city['name']:
-            return city
+    if cities:
+        for city in cities:
+            if name.title() in city['name']:
+                return city
 
 def str_cleanup(text):
     if text:

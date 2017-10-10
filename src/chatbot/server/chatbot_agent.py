@@ -37,7 +37,6 @@ from chatbot.words2num import words2num
 from chatbot.server.character import TYPE_AIML, TYPE_CS
 from operator import add, sub, mul, truediv, pow
 import math
-from chatbot.server.template import render
 
 OPERATOR_MAP = {
     '[add]': add,
@@ -477,17 +476,6 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                     (hit_character.id, response_type,
                     response.get('trace') or 'No trace'))
                 break
-
-    if answer and re.match('.*{.*}.*', answer):
-        logger.info("Template answer {}".format(answer))
-        try:
-            response['orig_text'] = answer
-            answer = render(answer)
-            response['text'] = answer
-        except Exception as ex:
-            answer = ''
-            response['text'] = ''
-            logger.error("Error in rendering template, {}".format(ex))
 
     dummy_character = get_character('dummy', lang)
     if not answer and dummy_character:

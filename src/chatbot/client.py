@@ -10,6 +10,8 @@ import threading
 import pprint
 from chatbot.utils import norm
 import uuid
+from jinja2 import Template
+from helpers import get_context_helpers
 
 import sys
 reload(sys)
@@ -74,6 +76,25 @@ class Client(cmd.Cmd, object):
             self.stdout.write(
                 "Chatbot server is not responding. Server url {}\n".format(self.chatbot_url))
         self.ignore_indicator = False
+
+    def render_template(self, string):
+        t = Template(string)
+        context = {}
+        helpers = get_context_helpers(string)
+        for helper in helpers:
+            try:
+                _context = helper(t, self)
+                if _context:
+                    context.update(_context)
+            except Exception as ex:
+                logger.error("Get context error, {}".format(ex))
+        try:
+            string = t.render(**context)
+        except Exception as ex:
+            logger.error("Rendering error, {}".format(ex))
+            string = t.render()
+
+        return string
 
     def retry(times):
         def wrap(f):
@@ -176,6 +197,15 @@ class Client(cmd.Cmd, object):
     def process_response(self, response):
         if response is not None:
             answer = response.get('text')
+            if answer and re.match('.*{.*}.*', answer):
+                logger.info("Template answer {}".format(answer))
+                try:
+                    response['orig_text'] = answer
+                    answer = self.render_template(answer)
+                    response['text'] = answer
+                except Exception as ex:
+                    logger.error("Error in rendering template, {}".format(ex))
+                    return
             if not self.ignore_indicator:
                 self.process_indicator(answer)
             response['text'] = norm(answer)

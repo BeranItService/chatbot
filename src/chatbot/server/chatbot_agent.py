@@ -367,9 +367,10 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                     logger.info("{} has good match".format(character.id))
                     answered = True
                 else:
-                    logger.info("{} has no good match".format(character.id))
-                    cross_trace.append((character.id, stage, 'No good match. Answer: {}, Trace: {}'.format(answer, trace)))
-                    cached_responses['nogoodmatch'].append((response, answer, character))
+                    if not response.get('bad'):
+                        logger.info("{} has no good match".format(character.id))
+                        cross_trace.append((character.id, stage, 'No good match. Answer: {}, Trace: {}'.format(answer, trace)))
+                        cached_responses['nogoodmatch'].append((response, answer, character))
             elif response.get('bad'):
                 cross_trace.append((character.id, stage, 'Bad answer. Answer: {}, Trace: {}'.format(answer, trace)))
                 cached_responses['bad'].append((response, answer, character))
@@ -462,7 +463,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                 break
 
     if not answer:
-        for response_type in ['pass', 'nogoodmatch', 'quibble', 'repeat', 'gambit', 'pickup', 'bad', '?']:
+        for response_type in ['pass', 'nogoodmatch', 'quibble', 'repeat', 'gambit', 'pickup', '?']:
             if cached_responses.get(response_type):
                 response, answer, hit_character = cached_responses.get(response_type)[0]
                 if response_type == 'repeat':

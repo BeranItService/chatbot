@@ -208,8 +208,10 @@ def do_translate(text, target_language='en-US'):
     logger.info('Translating %s, target language code %s(%s)', text, target_language, lang)
     result = client.translate(text, target_language=lang)
 
-    detected_source_language = CHATBOT_LANGUAGE_DICT[result['detectedSourceLanguage']]
-    if target_language in detected_source_language:
+    detected_source_language = CHATBOT_LANGUAGE_DICT.get(result['detectedSourceLanguage'])
+    if detected_source_language is None:
+        logger.warn("Detected language is %s", detected_source_language)
+    if detected_source_language is not None and target_language in detected_source_language:
         translated_text = text
         translated = False
         logger.info("No need to translate. The source language is the same as the target language.")

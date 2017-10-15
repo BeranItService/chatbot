@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import traceback
 import logging
 import random
 import os
@@ -131,6 +132,7 @@ def set_weights(param, lang, sid):
                 weights[k] = v
     except Exception as ex:
         logger.error(ex)
+        logger.error(traceback.format_exc())
         return False, "Wrong weight format"
 
     sess.sdata.weights = weights
@@ -186,6 +188,7 @@ def get_context(sid, lang):
             context.update(c.get_context(sess))
         except Exception as ex:
             logger.error("Get context error, {}".format(ex))
+            logger.error(traceback.format_exc())
     for k in context.keys():
         if k.startswith('_'):
             del context[k]
@@ -284,6 +287,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                     except Exception as ex:
                         cross_trace.append((control.id, 'control', 'No answer'))
                         logger.error(ex)
+                        logger.error(traceback.format_exc())
                 else:
                     cross_trace.append((control.id, 'control', 'No answer'))
         elif _answer in OPERATOR_MAP.keys():
@@ -311,6 +315,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                         answer = "Oh, the answer is not a number"
                     except Exception as ex:
                         logger.error(ex)
+                        logger.error(traceback.format_exc())
                         answer = "Sorry, something goes wrong. I can't calculate it."
                     response['text'] = answer
                     response['botid'] = control.id
@@ -593,6 +598,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
             input_translated, question = do_translate(question, FALLBACK_LANG)
         except Exception as ex:
             logger.error(ex)
+            logger.error(traceback.format_exc())
             return response, TRANSLATE_ERROR
 
     if not responding_characters:
@@ -661,6 +667,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
                 response['text'] = answer
             except Exception as ex:
                 logger.error(ex)
+                logger.error(traceback.format_exc())
                 return response, TRANSLATE_ERROR
 
         sess.add(response['OriginalQuestion'], response.get('text'), AnsweredBy=response['AnsweredBy'],

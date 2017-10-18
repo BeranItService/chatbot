@@ -43,6 +43,17 @@ class Console(object):
     def write(self, msg):
         logger.info("Console: {}".format(msg.strip()))
 
+class Locker(object):
+
+    def __init__(self):
+        self._lock = threading.RLock()
+
+    def lock(self):
+        self._lock.acquire()
+
+    def unlock(self):
+        self._lock.release()
+
 class Chatbot():
 
     def __init__(self):
@@ -68,6 +79,7 @@ class Chatbot():
         self.enable = True
         self.mute = False
         self.insert_behavior = False
+        self._locker = Locker()
 
         self.node_name = rospy.get_name()
         self.output_dir = os.path.join(HR_CHATBOT_REQUEST_DIR,
@@ -117,6 +129,15 @@ class Chatbot():
         self._gesture_publisher = rospy.Publisher(
             '/blender_api/set_gesture', SetGesture, queue_size=1)
 
+    def _threadsafe(f):
+        def wrap(self, *args, **kwargs):
+            self._locker.lock()
+            try:
+                return f(self, *args, **kwargs)
+            finally:
+                self._locker.unlock()
+        return wrap
+
     def sentiment_active(self, active):
         self._sentiment_active = active
 
@@ -159,6 +180,7 @@ class Chatbot():
         if msg.Speech:
             self.client.cancel_timer()
 
+    @_threadsafe
     def _request_callback(self, chat_message):
         if not self.enable:
             logger.info("Chatbot is disabled")
@@ -198,11 +220,8 @@ class Chatbot():
         if self.delay_response:
             logger.info("Add input: {}".format(chat_message.utterance))
             self.input_stack.append((time.clock(), chat_message))
-            msg = SetGesture()
-            msg.name = 'nod-1'
-            msg.speed = 1
-            msg.magnitude = 1
-            self._gesture_publisher.publish(msg)
+            self._gesture_publisher.publish(SetGesture('nod-2', 0, 1, 1))
+            self._gesture_publisher.publish(SetGesture('blink-relaxed', 0, 1, 1))
             self.reset_timer()
         else:
             self.ask([chat_message])
@@ -216,6 +235,7 @@ class Chatbot():
         self.timer.start()
         logger.info("New timer, {}".format(self.delay_time))
 
+    @_threadsafe
     def process_input(self):
         if not self.input_stack:
             return
@@ -253,10 +273,8 @@ class Chatbot():
             delay = t.module.delay
             if not self.delay_response:
                 self.recover = True
-            param = {
-                'delay_response': True,
-                'delay_time': delay,
-            }
+            param = {'delay_time': delay}
+            param['delay_response'] = delay > 0
             update_parameter('chatbot', param, timeout=2)
             logger.info("Set delay to {}".format(delay))
         if hasattr(t.module, 'btree'):
@@ -294,13 +312,13 @@ class Chatbot():
                 self.handle_control(orig_text)
             except Exception as ex:
                 logger.error(ex)
-        elif self.recover:
-            param = {
-                'delay_response': False
-            }
-            update_parameter('chatbot', param, timeout=2)
-            self.recover = False
-            logger.info("Recovered delay response")
+        #elif self.recover:
+        #    param = {
+        #        'delay_response': False
+        #    }
+        #    update_parameter('chatbot', param, timeout=2)
+        #    self.recover = False
+        #    logger.info("Recovered delay response")
 
         # Add space after punctuation for multi-sentence responses
         text = text.replace('?', '? ')

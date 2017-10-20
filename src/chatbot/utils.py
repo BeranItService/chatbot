@@ -11,6 +11,7 @@ import numpy as np
 import datetime as dt
 import six
 import traceback
+import time
 
 logger = logging.getLogger('hr.chatbot.utils')
 
@@ -206,7 +207,10 @@ def do_translate(text, target_language='en-US'):
 
     client = translate.Client()
     logger.info('Translating %s, target language code %s(%s)', text, target_language, lang)
+    start_time = time.time()
     result = client.translate(text, target_language=lang)
+    elapse = time.time() - start_time
+    logger.info('Translating took %s seconds', elapse)
 
     detected_source_language = CHATBOT_LANGUAGE_DICT.get(result['detectedSourceLanguage'])
     if detected_source_language is None:

@@ -472,12 +472,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
             if cached_responses.get(response_type):
                 response, answer, hit_character = cached_responses.get(response_type)[0]
                 if response_type == 'repeat':
-                    if len(answer) < 80:
-                        answer = "Again. " + answer
-                    elif 80 < len(answer) < 200:
-                        answer = "Let me say again. " + answer
-                    else:
-                        continue
+                    pass
                 response['text'] = answer
                 cross_trace.append(
                     (hit_character.id, response_type,

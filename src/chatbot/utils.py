@@ -102,18 +102,25 @@ def get_location():
         if not ip:
             logger.error("Public IP is invalid")
             return None
+        logger.info("Got IP %s", ip)
         logger.info("Getting location")
         response = requests.get('http://{host}:{port}/json/{ip}'.format(host=host, port=port, ip=ip), timeout=2)
         location = response.json()
         if not location:
             logger.error("Can't get location")
             return None
+        logger.info("Got location info %s", location)
         if location['country_code'] == 'HK':
             location['city'] = 'Hong Kong'
         if location['country_code'] == 'TW':
             location['city'] = 'Taiwan'
         if location['country_code'] == 'MO':
             location['city'] = 'Macau'
+        if not location.get('city'):
+           if location['time_zone']:
+               time_zone = location['time_zone'].split('/')[-1]
+               location['city'] = time_zone
+               logger.warn("No city in the location info. Will use timezone name, %s", time_zone)
     except subprocess.CalledProcessError as ex:
         logger.warn("Can't find public IP address")
     except Exception as ex:

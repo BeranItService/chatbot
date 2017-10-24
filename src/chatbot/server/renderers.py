@@ -24,7 +24,10 @@ def render_location(t):
     if location:
         if 'city' in location:
             location = location.get('city')
-            return t.render(location=location)
+            if location:
+                return t.render(location=location)
+            else:
+                logger.warn("Can't find location")
 
 def render_face_emotion(t):
     time.sleep(3)

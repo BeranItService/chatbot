@@ -98,7 +98,7 @@ def get_location():
     location = None
     try:
         logger.info("Getting public IP address")
-        ip = subprocess.check_output(['wget', '--timeout', '2', '-qO-', 'ipinfo.io/ip']).strip()
+        ip = subprocess.check_output(['wget', '--timeout', '3', '-qO-', 'ipinfo.io/ip']).strip()
         if not ip:
             logger.error("Public IP is invalid")
             return None
@@ -122,7 +122,8 @@ def get_location():
                location['city'] = time_zone
                logger.warn("No city in the location info. Will use timezone name, %s", time_zone)
     except subprocess.CalledProcessError as ex:
-        logger.warn("Can't find public IP address")
+        logger.error("Can't find public IP address")
+        logger.error(ex)
     except Exception as ex:
         logger.error(ex)
     return location

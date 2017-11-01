@@ -4,6 +4,7 @@ import os
 import sys
 import datetime as dt
 import logging
+import traceback
 import uuid
 from config import HISTORY_DIR, TEST_HISTORY_DIR, SESSION_REMOVE_TIMEOUT
 from response_cache import ResponseCache
@@ -16,6 +17,28 @@ try:
     import pymongo
 except ImportError as ex:
     logger.error(ex)
+
+mongoclient = None
+
+def init_mongo_client():
+    global mongoclient
+    while mongoclient is None:
+        if 'pymongo' in sys.modules:
+            try:
+                mongoclient = pymongo.MongoClient(
+                    'mongodb://localhost:27017/',
+                    socketTimeoutMS=1000,
+                    serverSelectionTimeoutMS=1000)
+                server_info = mongoclient.server_info()
+                logger.info("Activate mongodb")
+            except Exception as ex:
+                logger.error("Mongodb error %s", ex)
+                mongoclient = None
+        time.sleep(0.2)
+
+timer = threading.Timer(0, init_mongo_client)
+timer.daemon = True
+timer.start()
 
 class SessionData(object):
 
@@ -51,18 +74,6 @@ class Session(object):
         self.test = False
         self.last_used_character = None
         self.open_character = None
-        self.mongo_client = None
-        if 'pymongo' in sys.modules:
-            try:
-                self.mongo_client = pymongo.MongoClient('mongodb://localhost:27017/')
-                self.mongodb = self.mongo_client['chatbot']
-                self.mongocollection = self.mongodb['chatlogs']
-                logger.info("Activate mongodb")
-            except Exception as ex:
-                logger.error(ex)
-                self.mongo_client = None
-        else:
-            self.info("No mongodb")
 
     def set_test(self, test):
         if test:
@@ -70,19 +81,23 @@ class Session(object):
         self.test = test
 
     def add(self, question, answer, **kwargs):
+        global mongoclient
         if not self.closed:
             self.cache.add(question, answer, **kwargs)
             self.dump()
             self.last_active_time = self.cache.last_time
             self.active = True
-            if self.mongo_client is not None:
+            if mongoclient is not None:
                 chatlog = {'Question': question, "Answer": answer}
                 chatlog.update(kwargs)
                 try:
-                    result = self.mongocollection.insert_one(chatlog)
+                    mongocollection = mongoclient['chatbot']['chatlogs']
+                    result = mongocollection.insert_one(chatlog)
                     logger.info("Added chatlog to mongodb, id %s", result.inserted_id)
                 except Exception as ex:
-                    logger.error(ex)
+                    mongoclient = None
+                    logger.error(traceback.format_exc())
+                    logger.warn("Deactivate mongodb")
             return True
         return False
 

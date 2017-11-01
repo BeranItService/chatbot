@@ -1,6 +1,7 @@
 import threading
 import time
 import os
+import sys
 import datetime as dt
 import logging
 import uuid
@@ -11,6 +12,10 @@ from chatbot.server.character import TYPE_AIML
 
 logger = logging.getLogger('hr.chatbot.server.session')
 
+try:
+    import pymongo
+except ImportError as ex:
+    logger.error(ex)
 
 class SessionData(object):
 
@@ -46,6 +51,18 @@ class Session(object):
         self.test = False
         self.last_used_character = None
         self.open_character = None
+        self.mongo_client = None
+        if 'pymongo' in sys.modules:
+            try:
+                self.mongo_client = pymongo.MongoClient('mongodb://localhost:27017/')
+                self.mongodb = self.mongo_client['chatbot']
+                self.mongocollection = self.mongodb['chatlogs']
+                logger.info("Activate mongodb")
+            except Exception as ex:
+                logger.error(ex)
+                self.mongo_client = None
+        else:
+            self.info("No mongodb")
 
     def set_test(self, test):
         if test:
@@ -58,6 +75,14 @@ class Session(object):
             self.dump()
             self.last_active_time = self.cache.last_time
             self.active = True
+            if self.mongo_client is not None:
+                chatlog = {'Question': question, "Answer": answer}
+                chatlog.update(kwargs)
+                try:
+                    result = self.mongocollection.insert_one(chatlog)
+                    logger.info("Added chatlog to mongodb, id %s", result.inserted_id)
+                except Exception as ex:
+                    logger.error(ex)
             return True
         return False
 

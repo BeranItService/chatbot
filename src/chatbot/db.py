@@ -20,7 +20,7 @@ def init_mongo_client(mongoclient, host='localhost', port=27017):
                 serverSelectionTimeoutMS=1000)
             try:
                 mongoclient.client.admin.command('ismaster')
-                logger.info("Activate mongodb")
+                logger.warn("Activate mongodb")
             except pymongo.errors.ConnectionFailure:
                 logger.error("Server not available")
                 mongoclient.client = None
@@ -31,9 +31,9 @@ def init_mongo_client(mongoclient, host='localhost', port=27017):
     timer.start()
     logger.info("Thread starts")
 
-def get_mongo_client():
+def get_mongo_client(host='localhost', port=27017):
     mongoclient = MongoClient()
-    init_mongo_client(mongoclient)
+    init_mongo_client(mongoclient, host, port)
     return mongoclient
 
 if __name__ == '__main__':

@@ -10,35 +10,15 @@ from config import HISTORY_DIR, TEST_HISTORY_DIR, SESSION_REMOVE_TIMEOUT
 from response_cache import ResponseCache
 from collections import defaultdict
 from chatbot.server.character import TYPE_AIML
+from chatbot.db import get_mongo_client
 
 logger = logging.getLogger('hr.chatbot.server.session')
 
 try:
-    import pymongo
+    mongoclient = get_mongo_client()
 except ImportError as ex:
+    mongoclient = None
     logger.error(ex)
-
-mongoclient = None
-
-def init_mongo_client():
-    global mongoclient
-    while mongoclient is None:
-        if 'pymongo' in sys.modules:
-            try:
-                mongoclient = pymongo.MongoClient(
-                    'mongodb://localhost:27017/',
-                    socketTimeoutMS=1000,
-                    serverSelectionTimeoutMS=1000)
-                server_info = mongoclient.server_info()
-                logger.info("Activate mongodb")
-            except Exception as ex:
-                logger.error("Mongodb error %s", ex)
-                mongoclient = None
-        time.sleep(0.2)
-
-timer = threading.Timer(0, init_mongo_client)
-timer.daemon = True
-timer.start()
 
 class SessionData(object):
 
@@ -81,21 +61,20 @@ class Session(object):
         self.test = test
 
     def add(self, question, answer, **kwargs):
-        global mongoclient
         if not self.closed:
             self.cache.add(question, answer, **kwargs)
             self.dump()
             self.last_active_time = self.cache.last_time
             self.active = True
-            if mongoclient is not None:
+            if mongoclient is not None and mongoclient.client is not None:
                 chatlog = {'Question': question, "Answer": answer}
                 chatlog.update(kwargs)
                 try:
-                    mongocollection = mongoclient['chatbot']['chatlogs']
+                    mongocollection = mongoclient.client['chatbot']['chatlogs']
                     result = mongocollection.insert_one(chatlog)
                     logger.info("Added chatlog to mongodb, id %s", result.inserted_id)
                 except Exception as ex:
-                    mongoclient = None
+                    mongoclient.client = None
                     logger.error(traceback.format_exc())
                     logger.warn("Deactivate mongodb")
             return True

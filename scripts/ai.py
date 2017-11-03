@@ -12,9 +12,11 @@ import re
 import uuid
 import pandas as pd
 import random
+import traceback
 
 from jinja2 import Template
 from chatbot.polarity import Polarity
+from chatbot.db import get_mongo_client
 from hr_msgs.msg import ChatMessage, TTS
 from std_msgs.msg import String
 from audio_stream.msg import audiodata
@@ -80,6 +82,10 @@ class Chatbot():
         self.mute = False
         self.insert_behavior = False
         self._locker = Locker()
+        try:
+            self.mongoclient = get_mongo_client()
+        except Exception as ex:
+            self.mongoclient = None
 
         self.node_name = rospy.get_name()
         self.output_dir = os.path.join(HR_CHATBOT_REQUEST_DIR,
@@ -246,19 +252,29 @@ class Chatbot():
         del self.input_stack[:]
 
     def write_request(self, request_id, chatmessages):
-        rows = []
+        requests = []
         columns = ['RequestID', 'Index', 'Source', 'AudioPath', 'Transcript']
         for i, msg in enumerate(chatmessages):
             audio = os.path.basename(msg.audio_path)
-            row = {
+            request = {
                 'RequestID': request_id,
                 'Index': i,
                 'Source': msg.source,
                 'AudioPath': audio,
                 'Transcript': msg.utterance
             }
-            rows.append(row)
-        df = pd.DataFrame(rows)
+            requests.append(request)
+        if self.mongoclient is not None and self.mongoclient.client is not None:
+            try:
+                mongocollection = self.mongoclient.client['chatbot']['requests']
+                result = mongocollection.insert_many(requests)
+                logger.info("Added requests to mongodb")
+            except Exception as ex:
+                self.mongoclient.client = None
+                logger.error(traceback.format_exc())
+                logger.warn("Deactivate mongodb")
+
+        df = pd.DataFrame(requests)
         if not os.path.isfile(self.requests_fname):
             with open(self.requests_fname, 'w') as f:
                 f.write(','.join(columns))

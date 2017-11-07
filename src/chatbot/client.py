@@ -55,6 +55,7 @@ class Client(cmd.Cmd, object):
         self.response_listener = response_listener
         self.test = test
         self.marker = 'default'
+        self.run_id = ''
         self.prompt = '[me]: '
         self.botname = botname
         self.chatbot_ip = host
@@ -132,6 +133,7 @@ class Client(cmd.Cmd, object):
             "Auth": self.key,
             "query": query,
             "marker": self.marker,
+            "run_id": self.run_id,
         }
 
         headers = {
@@ -335,6 +337,10 @@ For example, port 8001
     def set_marker(self, marker):
         if marker:
             self.marker = marker
+
+    def set_run_id(self, run_id):
+        if run_id:
+            self.run_id = run_id
 
     def do_rw(self, line):
         try:

@@ -101,6 +101,10 @@ class Chatbot():
         self.recover = False
         self.delay_time = rospy.get_param('delay_time', 5)
 
+        run_id = rospy.get_param('/run_id', '')
+        self.client.set_run_id(run_id)
+        logger.info("Set run_id %s", run_id)
+
         rospy.Subscriber('chatbot_speech', ChatMessage, self._request_callback)
         rospy.Subscriber('speech_events', String, self._speech_event_callback) # robot starts to speak
         rospy.Subscriber('chat_events', String, self._chat_event_callback) # user starts to speak

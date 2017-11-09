@@ -223,6 +223,8 @@ class Chatbot():
                 logger.error("Executing command {} error {}".format(func, ex))
             return
 
+        chat_message.utterance = self.handle_control(chat_message.utterance)
+
         # blink that we heard something, request, probability defined in
         # callback
         self._blink_publisher.publish('chat_heard')
@@ -307,6 +309,7 @@ class Chatbot():
                 logger.info("Disable btree")
             else:
                 logger.warn("Incorrect btree argument, {}".format(btree))
+        return t.render()
 
     def on_response(self, sid, response):
         if response is None:

@@ -10,14 +10,14 @@ class MongoClient(object):
     def __init__(self):
         self.client = None
 
-def init_mongo_client(mongoclient, host='localhost', port=27017):
+def init_mongo_client(mongoclient, host='localhost', port=27017, socketTimeoutMS=1000, serverSelectionTimeoutMS=1000):
     import pymongo
     def _init_mongo_client(mongoclient):
         while mongoclient.client is None:
             mongoclient.client = pymongo.MongoClient(
                 'mongodb://{}:{}/'.format(host, port),
-                socketTimeoutMS=1000,
-                serverSelectionTimeoutMS=1000)
+                socketTimeoutMS=socketTimeoutMS,
+                serverSelectionTimeoutMS=serverSelectionTimeoutMS)
             try:
                 mongoclient.client.admin.command('ismaster')
                 logger.warn("Activate mongodb")
@@ -31,9 +31,9 @@ def init_mongo_client(mongoclient, host='localhost', port=27017):
     timer.start()
     logger.info("Thread starts")
 
-def get_mongo_client(host='localhost', port=27017):
+def get_mongo_client(**kwargs):
     mongoclient = MongoClient()
-    init_mongo_client(mongoclient, host, port)
+    init_mongo_client(mongoclient, **kwargs)
     return mongoclient
 
 if __name__ == '__main__':

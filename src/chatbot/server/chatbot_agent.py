@@ -26,7 +26,6 @@ from loader import load_characters
 from config import CHARACTER_PATH, RESET_SESSION_BY_HELLO, config
 CHARACTERS = load_characters(CHARACTER_PATH)
 REVISION = os.environ.get('HR_CHATBOT_REVISION')
-ROBOT_NAME = os.environ.get('NAME')
 
 from session import ChatSessionManager
 session_manager = ChatSessionManager()
@@ -675,7 +674,6 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
                     TranslateOutput=output_translated,
                     TranslatedQuestion=question,
                     OriginalAnswer=response['OriginalAnswer'],
-                    RobotName=ROBOT_NAME,
                     RunID=kwargs.get('run_id'),
         )
 

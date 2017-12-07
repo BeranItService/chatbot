@@ -20,6 +20,8 @@ except ImportError as ex:
     mongoclient = None
     logger.error(ex)
 
+ROBOT_NAME = os.environ.get('NAME', 'default')
+
 class SessionData(object):
 
     def __init__(self):
@@ -70,7 +72,7 @@ class Session(object):
                 chatlog = {'Question': question, "Answer": answer}
                 chatlog.update(kwargs)
                 try:
-                    mongocollection = mongoclient.client['chatbot']['chatlogs']
+                    mongocollection = mongoclient.client[ROBOT_NAME]['chatbot']['chatlogs']
                     result = mongocollection.insert_one(chatlog)
                     logger.info("Added chatlog to mongodb, id %s", result.inserted_id)
                 except Exception as ex:

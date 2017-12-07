@@ -259,10 +259,11 @@ class Chatbot():
 
     def write_request(self, request_id, chatmessages):
         requests = []
-        columns = ['RequestID', 'Index', 'Source', 'AudioPath', 'Transcript']
+        columns = ['Datetime', 'RequestID', 'Index', 'Source', 'AudioPath', 'Transcript']
         for i, msg in enumerate(chatmessages):
             audio = os.path.basename(msg.audio_path)
             request = {
+                'Datetime':  dt.datetime.now(),
                 'RequestID': request_id,
                 'Index': i,
                 'Source': msg.source,

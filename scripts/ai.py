@@ -31,6 +31,7 @@ logger = logging.getLogger('hr.chatbot.ai')
 HR_CHATBOT_AUTHKEY = os.environ.get('HR_CHATBOT_AUTHKEY', 'AAAAB3NzaC')
 HR_CHATBOT_REQUEST_DIR = os.environ.get('HR_CHATBOT_REQUEST_DIR') or \
     os.path.expanduser('~/.hr/chatbot/requests')
+ROBOT_NAME = os.environ.get('NAME', 'default')
 
 def update_parameter(node, param, *args, **kwargs):
     client = dynamic_reconfigure.client.Client(node, *args, **kwargs)
@@ -101,9 +102,9 @@ class Chatbot():
         self.recover = False
         self.delay_time = rospy.get_param('delay_time', 5)
 
-        run_id = rospy.get_param('/run_id', '')
-        self.client.set_run_id(run_id)
-        logger.info("Set run_id %s", run_id)
+        self.run_id = rospy.get_param('/run_id', '')
+        self.client.set_run_id(self.run_id)
+        logger.info("Set run_id %s", self.run_id)
 
         rospy.Subscriber('chatbot_speech', ChatMessage, self._request_callback)
         rospy.Subscriber('speech_events', String, self._speech_event_callback) # robot starts to speak
@@ -268,12 +269,13 @@ class Chatbot():
                 'Index': i,
                 'Source': msg.source,
                 'AudioPath': audio,
-                'Transcript': msg.utterance
+                'Transcript': msg.utterance,
+                'RunID': self.run_id,
             }
             requests.append(request)
         if self.mongoclient is not None and self.mongoclient.client is not None:
             try:
-                mongocollection = self.mongoclient.client['chatbot']['requests']
+                mongocollection = self.mongoclient.client[ROBOT_NAME]['chatbot']['requests']
                 result = mongocollection.insert_many(requests)
                 logger.info("Added requests to mongodb")
             except Exception as ex:

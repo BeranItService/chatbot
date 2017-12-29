@@ -34,10 +34,10 @@ def init_mongo_client(mongoclient, host='localhost', port=27017, socketTimeoutMS
 def get_mongo_client(**kwargs):
     mongoclient = MongoClient()
     init_mongo_client(mongoclient, **kwargs)
-    return mongoclient
+    return mongoclient.client
 
 if __name__ == '__main__':
-    mongoclient = get_mongo_client()
-    while mongoclient.client is None:
+    client = get_mongo_client()
+    while client is None:
         time.sleep(0.1)
-    print mongoclient.client.server_info()
+    print client.server_info()

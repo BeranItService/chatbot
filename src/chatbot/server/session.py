@@ -68,15 +68,15 @@ class Session(object):
             self.dump()
             self.last_active_time = self.cache.last_time
             self.active = True
-            if mongoclient is not None and mongoclient.client is not None:
+            if mongoclient is not None:
                 chatlog = {'Question': question, "Answer": answer}
                 chatlog.update(kwargs)
                 try:
-                    mongocollection = mongoclient.client[ROBOT_NAME]['chatbot']['chatlogs']
+                    mongocollection = mongoclient[ROBOT_NAME]['chatbot']['chatlogs']
                     result = mongocollection.insert_one(chatlog)
                     logger.info("Added chatlog to mongodb, id %s", result.inserted_id)
                 except Exception as ex:
-                    mongoclient.client = None
+                    mongoclient = None
                     logger.error(traceback.format_exc())
                     logger.warn("Deactivate mongodb")
             return True

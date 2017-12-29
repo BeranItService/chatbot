@@ -273,13 +273,13 @@ class Chatbot():
                 'RunID': self.run_id,
             }
             requests.append(request)
-        if self.mongoclient is not None and self.mongoclient.client is not None:
+        if self.mongoclient is not None:
             try:
-                mongocollection = self.mongoclient.client[ROBOT_NAME]['chatbot']['requests']
+                mongocollection = self.mongoclient[ROBOT_NAME]['chatbot']['requests']
                 result = mongocollection.insert_many(requests)
                 logger.info("Added requests to mongodb")
             except Exception as ex:
-                self.mongoclient.client = None
+                self.mongoclient = None
                 logger.error(traceback.format_exc())
                 logger.warn("Deactivate mongodb")
 

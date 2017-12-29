@@ -75,6 +75,9 @@ class Session(object):
                     mongocollection = mongodb.client[mongodb.dbname][ROBOT_NAME]['chatbot']['chatlogs']
                     result = mongocollection.insert_one(chatlog)
                     logger.info("Added chatlog to mongodb, id %s", result.inserted_id)
+                    sharecollection = mongodb.get_share_collection()
+                    result = sharecollection.insert_one({'node': 'chatbot', 'msg':chatlog})
+                    logger.info("Added chatlog to share collection, id %s", result.inserted_id)
                 except Exception as ex:
                     mongodb.client = None
                     logger.error(traceback.format_exc())

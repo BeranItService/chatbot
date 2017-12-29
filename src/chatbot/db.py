@@ -6,38 +6,40 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('hr.chatbot.db')
 
-class MongoClient(object):
-    def __init__(self):
+class MongoDB(object):
+    def __init__(self, dbname):
         self.client = None
+        self.dbname = dbname
 
-def init_mongo_client(mongoclient, host='localhost', port=27017, socketTimeoutMS=1000, serverSelectionTimeoutMS=1000):
+def _init_mongodb(mongodb, host='localhost', port=27017, socketTimeoutMS=1000, serverSelectionTimeoutMS=1000):
     import pymongo
-    def _init_mongo_client(mongoclient):
-        while mongoclient.client is None:
-            mongoclient.client = pymongo.MongoClient(
+    def _init_mongo_client(mongodb):
+        while mongodb.client is None:
+            mongodb.client = pymongo.MongoClient(
                 'mongodb://{}:{}/'.format(host, port),
                 socketTimeoutMS=socketTimeoutMS,
                 serverSelectionTimeoutMS=serverSelectionTimeoutMS)
             try:
-                mongoclient.client.admin.command('ismaster')
-                logger.warn("Activate mongodb")
+                mongodb.client.admin.command('ismaster')
+                logger.warn("Activate mongodb, %s", mongodb)
             except pymongo.errors.ConnectionFailure:
                 logger.error("Server not available")
-                mongoclient.client = None
+                mongodb.client = None
             time.sleep(0.2)
 
-    timer = threading.Timer(0, _init_mongo_client, (mongoclient,))
+    timer = threading.Timer(0, _init_mongo_client, (mongodb,))
     timer.daemon = True
     timer.start()
     logger.info("Thread starts")
 
-def get_mongo_client(**kwargs):
-    mongoclient = MongoClient()
-    init_mongo_client(mongoclient, **kwargs)
-    return mongoclient.client
+def get_mongodb(dbname='hr', **kwargs):
+    mongodb = MongoDB(dbname)
+    _init_mongodb(mongodb, **kwargs)
+    return mongodb
 
 if __name__ == '__main__':
-    client = get_mongo_client()
-    while client is None:
+    mongodb = get_mongodb()
+    while mongodb.client is None:
         time.sleep(0.1)
-    print client.server_info()
+    print mongodb.client.server_info()
+    print mongodb.client.HOST

@@ -48,7 +48,7 @@ class MongoDB(object):
         collection = self.get_share_collection()
         while True:
             cursor = collection.find(cursor_type=pymongo.CursorType.TAILABLE_AWAIT, no_cursor_timeout=True)
-            logger.info('Cursor alive %s', cursor.alive)
+            logger.info('Cursor created')
             try:
                 while cursor.alive:
                     for doc in cursor:
@@ -56,6 +56,7 @@ class MongoDB(object):
                         for l in self.listeners:
                             l.handle_incoming_data(doc)
                     time.sleep(0.2)
+                logger.info('Cursor alive %s', cursor.alive)
             except Exception as ex:
                 logger.error(traceback.format_exc())
             finally:

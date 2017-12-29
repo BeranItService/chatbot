@@ -10,14 +10,14 @@ from config import HISTORY_DIR, TEST_HISTORY_DIR, SESSION_REMOVE_TIMEOUT
 from response_cache import ResponseCache
 from collections import defaultdict
 from chatbot.server.character import TYPE_AIML
-from chatbot.db import get_mongo_client
+from chatbot.db import get_mongodb, MongoDB
 
 logger = logging.getLogger('hr.chatbot.server.session')
 
 try:
-    mongoclient = get_mongo_client()
+    mongodb = get_mongodb()
 except ImportError as ex:
-    mongoclient = None
+    mongodb = MongoDB()
     logger.error(ex)
 
 ROBOT_NAME = os.environ.get('NAME', 'default')
@@ -68,15 +68,15 @@ class Session(object):
             self.dump()
             self.last_active_time = self.cache.last_time
             self.active = True
-            if mongoclient is not None:
+            if mongodb.client is not None:
                 chatlog = {'Question': question, "Answer": answer}
                 chatlog.update(kwargs)
                 try:
-                    mongocollection = mongoclient[ROBOT_NAME]['chatbot']['chatlogs']
+                    mongocollection = mongodb.client[mongodb.dbname][ROBOT_NAME]['chatbot']['chatlogs']
                     result = mongocollection.insert_one(chatlog)
                     logger.info("Added chatlog to mongodb, id %s", result.inserted_id)
                 except Exception as ex:
-                    mongoclient = None
+                    mongodb.client = None
                     logger.error(traceback.format_exc())
                     logger.warn("Deactivate mongodb")
             return True

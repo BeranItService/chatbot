@@ -24,9 +24,6 @@ class MongoDB(object):
         self.client = None
         self.dbname = dbname
         self.listeners = []
-        timer = threading.Timer(0, self._start_monitoring)
-        timer.daemon = True
-        timer.start()
 
     def get_share_collection(self):
         collection_names = self.client[self.dbname].collection_names()
@@ -39,6 +36,11 @@ class MongoDB(object):
     def add_listener(self, listener):
         self.listeners.append(listener)
 
+    def start_monitoring(self):
+        timer = threading.Timer(0, self._start_monitoring)
+        timer.daemon = True
+        timer.start()
+
     def _start_monitoring(self):
         import pymongo
         while self.client is None:
@@ -46,6 +48,7 @@ class MongoDB(object):
         collection = self.get_share_collection()
         while True:
             cursor = collection.find(cursor_type=pymongo.CursorType.TAILABLE_AWAIT, no_cursor_timeout=True)
+            logger.info('Cursor alive %s', cursor.alive)
             try:
                 while cursor.alive:
                     for doc in cursor:
@@ -57,7 +60,6 @@ class MongoDB(object):
                 logger.error(traceback.format_exc())
             finally:
                 cursor.close()
-            logger.warn('Invalid cursor. Retrying')
             time.sleep(2)
 
 

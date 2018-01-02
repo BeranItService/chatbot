@@ -11,13 +11,9 @@ logger = logging.getLogger('hr.chatbot.db')
 SHARE_COLLECTION_NAME = 'share'
 SHARE_COLLECTION_SIZE = 10000
 
-class ShareDataListener(object):
+class MongoDBCollectionListener(object):
     def handle_incoming_data(self, data):
         return NotImplemented
-
-class DefaultShareDataListener(ShareDataListener):
-    def handle_incoming_data(self, data):
-        print 'handle incoming data', data
 
 class MongoDB(object):
     def __init__(self, dbname):
@@ -34,7 +30,11 @@ class MongoDB(object):
         return self.client[self.dbname][SHARE_COLLECTION_NAME]
 
     def add_listener(self, listener):
-        self.listeners.append(listener)
+        if isinstance(listener, MongoDBCollectionListener):
+            self.listeners.append(listener)
+        else:
+            raise ValueError("Listener must be the class or sub-class of \
+                MongoDBCollectionListener")
 
     def start_monitoring(self):
         timer = threading.Timer(0, self._start_monitoring)
@@ -47,7 +47,9 @@ class MongoDB(object):
             time.sleep(0.1)
         collection = self.get_share_collection()
         while True:
-            cursor = collection.find(cursor_type=pymongo.CursorType.TAILABLE_AWAIT, no_cursor_timeout=True)
+            cursor = collection.find(
+                cursor_type=pymongo.CursorType.TAILABLE_AWAIT,
+                no_cursor_timeout=True)
             logger.info('Cursor created')
             try:
                 while cursor.alive:
@@ -64,7 +66,8 @@ class MongoDB(object):
             time.sleep(2)
 
 
-def _init_mongodb(mongodb, host='localhost', port=27017, socketTimeoutMS=2000, serverSelectionTimeoutMS=1000):
+def _init_mongodb(mongodb, host='localhost', port=27017,
+        socketTimeoutMS=2000, serverSelectionTimeoutMS=1000):
     import pymongo
     def _init_mongo_client(mongodb):
         while mongodb.client is None:
@@ -95,6 +98,9 @@ if __name__ == '__main__':
     while mongodb.client is None:
         time.sleep(0.1)
     print mongodb.client.server_info()
-    mongodb.add_listener(DefaultShareDataListener())
+    class Listener(MongoDBCollectionListener):
+        def handle_incoming_data(self, data):
+            print 'handle incoming data', data
+    mongodb.add_listener(Listener())
     while True:
         time.sleep(1)

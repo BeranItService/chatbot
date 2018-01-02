@@ -8,7 +8,7 @@ import traceback
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('hr.chatbot.db')
 
-SHARE_COLLECTION_NAME = 'share'
+SHARE_COLLECTION_NAME = 'runtime'
 SHARE_COLLECTION_SIZE = 10000
 
 class MongoDBCollectionListener(object):

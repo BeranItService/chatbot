@@ -675,6 +675,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
                     TranslatedQuestion=question,
                     OriginalAnswer=response['OriginalAnswer'],
                     RunID=kwargs.get('run_id'),
+                    Topic=response.get('topic'),
         )
 
         logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))

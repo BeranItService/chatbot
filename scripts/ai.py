@@ -16,7 +16,7 @@ import traceback
 
 from jinja2 import Template
 from chatbot.polarity import Polarity
-from chatbot.db import get_mongo_client
+from chatbot.db import get_mongodb, MongoDB
 from hr_msgs.msg import ChatMessage, TTS
 from std_msgs.msg import String
 from audio_stream.msg import audiodata
@@ -84,9 +84,9 @@ class Chatbot():
         self.insert_behavior = False
         self._locker = Locker()
         try:
-            self.mongoclient = get_mongo_client()
+            self.mongodb = get_mongodb()
         except Exception as ex:
-            self.mongoclient = None
+            self.mongodb = MongoDB()
 
         self.node_name = rospy.get_name()
         self.output_dir = os.path.join(HR_CHATBOT_REQUEST_DIR,
@@ -273,13 +273,13 @@ class Chatbot():
                 'RunID': self.run_id,
             }
             requests.append(request)
-        if self.mongoclient is not None and self.mongoclient.client is not None:
+        if self.mongodb.client is not None:
             try:
-                mongocollection = self.mongoclient.client[ROBOT_NAME]['chatbot']['requests']
+                mongocollection = self.mongodb.client[self.mongodb.dbname][ROBOT_NAME]['chatbot']['requests']
                 result = mongocollection.insert_many(requests)
                 logger.info("Added requests to mongodb")
             except Exception as ex:
-                self.mongoclient.client = None
+                self.mongodb.client = None
                 logger.error(traceback.format_exc())
                 logger.warn("Deactivate mongodb")
 

@@ -16,7 +16,7 @@ import traceback
 
 from jinja2 import Template
 from chatbot.polarity import Polarity
-from chatbot.db import get_mongodb, MongoDB
+from chatbot.db import get_mongodb, MongoDB, MongoDBCollectionListener
 from hr_msgs.msg import ChatMessage, TTS
 from std_msgs.msg import String
 from audio_stream.msg import audiodata
@@ -57,7 +57,7 @@ class Locker(object):
     def unlock(self):
         self._lock.release()
 
-class Chatbot():
+class Chatbot(MongoDBCollectionListener):
 
     def __init__(self):
         self.botname = rospy.get_param('botname', 'sophia')
@@ -85,8 +85,11 @@ class Chatbot():
         self._locker = Locker()
         try:
             self.mongodb = get_mongodb()
+            self.mongodb.add_listener(self)
+            self.mongodb.start_monitoring()
         except Exception as ex:
             self.mongodb = MongoDB()
+        self._used_faces = []
 
         self.node_name = rospy.get_name()
         self.output_dir = os.path.join(HR_CHATBOT_REQUEST_DIR,
@@ -139,6 +142,20 @@ class Chatbot():
 
         self._gesture_publisher = rospy.Publisher(
             '/blender_api/set_gesture', SetGesture, queue_size=1)
+
+    # Interface implementation of MongoDBCollectionListener
+    def handle_incoming_data(self, data):
+        if 'node' in data and data['node'] == 'face_recognizer':
+            face = data.get('msg')
+            name = face['FaceID']
+            name = name.title()
+            confidence = face['Confidence']
+            if name not in self._used_faces:
+                self._used_faces.append(name)
+                self._response_publisher.publish(
+                    TTS(text='Hi {}, nice to see you'.format(name), lang='en-US'))
+                self.client.set_context('name={}'.format(name))
+            logger.info("Get face %s %s", name, confidence)
 
     def _threadsafe(f):
         def wrap(self, *args, **kwargs):

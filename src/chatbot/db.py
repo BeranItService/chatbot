@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('hr.chatbot.db')
 
 SHARE_COLLECTION_NAME = 'runtime'
-SHARE_COLLECTION_SIZE = 10000
+SHARE_COLLECTION_SIZE = 1e9
 
 class MongoDBCollectionListener(object):
     def handle_incoming_data(self, data):

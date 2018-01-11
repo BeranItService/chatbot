@@ -62,10 +62,12 @@ class MongoDB(object):
         while self.client is None:
             time.sleep(0.1)
         collection = self.get_share_collection()
+        tailN = 0
         while True:
             cursor = collection.find(
                 cursor_type=pymongo.CursorType.TAILABLE_AWAIT,
                 no_cursor_timeout=True)
+            cursor.skip(collection.count() - tailN)
             logger.info('Cursor created')
             try:
                 while cursor.alive:

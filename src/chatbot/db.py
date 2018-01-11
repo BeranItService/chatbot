@@ -22,6 +22,7 @@ class MongoDB(object):
         self.dbname = dbname
         self.listeners = []
         self.subscribers = defaultdict(list)
+        self._monitoring = threading.Event()
 
     def get_share_collection(self):
         collection_names = self.client[self.dbname].collection_names()
@@ -48,11 +49,15 @@ class MongoDB(object):
     def subscribe(self, topic, subscriber):
         if isinstance(subscriber, MongoDBCollectionListener):
             self.subscribers[topic].append(subscriber)
+            self.start_monitoring()
         else:
             raise ValueError("Subscriber must be the class or sub-class of \
                 MongoDBCollectionListener")
 
     def start_monitoring(self):
+        if self._monitoring.is_set():
+            return
+        self._monitoring.set()
         timer = threading.Timer(0, self._start_monitoring)
         timer.daemon = True
         timer.start()
@@ -63,7 +68,7 @@ class MongoDB(object):
             time.sleep(0.1)
         collection = self.get_share_collection()
         tailN = 0
-        while True:
+        while self._monitoring.is_set():
             cursor = collection.find(
                 cursor_type=pymongo.CursorType.TAILABLE_AWAIT,
                 no_cursor_timeout=True)
@@ -141,7 +146,6 @@ if __name__ == '__main__':
                 counter += 1
 
     mongodb.subscribe('camera', Listener())
-    mongodb.start_monitoring()
 
     job = threading.Timer(0, print_fps)
     job.daemon = True

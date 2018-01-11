@@ -4,6 +4,7 @@ import time
 import logging
 import os
 import traceback
+from collections import defaultdict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('hr.chatbot.db')
@@ -20,6 +21,7 @@ class MongoDB(object):
         self.client = None
         self.dbname = dbname
         self.listeners = []
+        self.subscribers = defaultdict(list)
 
     def get_share_collection(self):
         collection_names = self.client[self.dbname].collection_names()
@@ -34,6 +36,20 @@ class MongoDB(object):
             self.listeners.append(listener)
         else:
             raise ValueError("Listener must be the class or sub-class of \
+                MongoDBCollectionListener")
+
+    def publish(self, topic, msg):
+        collection = self.get_share_collection()
+        try:
+            collection.insert_one({'topic': topic, 'msg': msg})
+        except Exception as ex:
+            logger.error(ex)
+
+    def subscribe(self, topic, subscriber):
+        if isinstance(subscriber, MongoDBCollectionListener):
+            self.subscribers[topic].append(subscriber)
+        else:
+            raise ValueError("Subscriber must be the class or sub-class of \
                 MongoDBCollectionListener")
 
     def start_monitoring(self):
@@ -54,9 +70,12 @@ class MongoDB(object):
             try:
                 while cursor.alive:
                     for doc in cursor:
-                        logger.info('Get document %s', doc)
                         for l in self.listeners:
                             l.handle_incoming_data(doc)
+                        for topic, subscribers in self.subscribers.iteritems():
+                            if doc.get('topic') == topic:
+                                for sub in subscribers:
+                                    sub.handle_incoming_data(doc)
                     time.sleep(0.2)
                 logger.info('Cursor alive %s', cursor.alive)
             except Exception as ex:
@@ -98,9 +117,33 @@ if __name__ == '__main__':
     while mongodb.client is None:
         time.sleep(0.1)
     print mongodb.client.server_info()
+
+    def print_fps():
+        global counter
+        start_ts = time.time()
+        while True:
+            time.sleep(1)
+            end_ts = time.time()
+            print counter/(end_ts - start_ts)
+            with lock:
+                counter = 0
+            start_ts = end_ts
+
+    counter = 0
+    lock = threading.RLock()
     class Listener(MongoDBCollectionListener):
         def handle_incoming_data(self, data):
-            print 'handle incoming data', data
-    mongodb.add_listener(Listener())
+            print data['msg']['width'], data['msg']['height']
+            global counter
+            with lock:
+                counter += 1
+
+    mongodb.subscribe('camera', Listener())
+    mongodb.start_monitoring()
+
+    job = threading.Timer(0, print_fps)
+    job.daemon = True
+    job.start()
+
     while True:
         time.sleep(1)

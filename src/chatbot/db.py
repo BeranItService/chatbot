@@ -22,7 +22,6 @@ class MongoDB(object):
         self.dbname = dbname
         self.listeners = []
         self.subscribers = defaultdict(list)
-        self._monitoring = threading.Event()
 
     def get_share_collection(self):
         collection_names = self.client[self.dbname].collection_names()
@@ -49,30 +48,28 @@ class MongoDB(object):
     def subscribe(self, topic, subscriber):
         if isinstance(subscriber, MongoDBCollectionListener):
             self.subscribers[topic].append(subscriber)
-            self.start_monitoring()
+            self.start_monitoring({'topic': topic})
         else:
             raise ValueError("Subscriber must be the class or sub-class of \
                 MongoDBCollectionListener")
 
-    def start_monitoring(self):
-        if self._monitoring.is_set():
-            return
-        self._monitoring.set()
-        timer = threading.Timer(0, self._start_monitoring)
+    def start_monitoring(self, filter={}):
+        timer = threading.Timer(0, self._start_monitoring, kwargs=filter)
         timer.daemon = True
         timer.start()
 
-    def _start_monitoring(self):
+    def _start_monitoring(self, **filter):
         import pymongo
         while self.client is None:
             time.sleep(0.1)
         collection = self.get_share_collection()
         tailN = 0
-        while self._monitoring.is_set():
-            cursor = collection.find(
+        while True:
+            cursor = collection.find(filter,
                 cursor_type=pymongo.CursorType.TAILABLE_AWAIT,
                 no_cursor_timeout=True)
-            cursor.skip(collection.count() - tailN)
+            count = collection.find(filter).count()
+            cursor.skip(count - tailN)
             logger.info('Cursor created')
             try:
                 while cursor.alive:

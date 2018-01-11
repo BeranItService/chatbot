@@ -47,6 +47,9 @@ class MongoDB(object):
 
     def subscribe(self, topic, subscriber):
         if isinstance(subscriber, MongoDBCollectionListener):
+            if subscriber in self.subscribers[topic]:
+                logger.warn("Subscriber has already registered")
+                return
             self.subscribers[topic].append(subscriber)
             self.start_monitoring({'topic': topic})
         else:

@@ -17,7 +17,7 @@ class MongoDBCollectionListener(object):
         return NotImplemented
 
 class MongoDB(object):
-    def __init__(self, dbname):
+    def __init__(self, dbname='hr'):
         self.client = None
         self.dbname = dbname
         self.listeners = []

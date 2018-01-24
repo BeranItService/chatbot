@@ -432,7 +432,7 @@ def main():
 
     parser.add_argument(
         '-p, --port',
-        dest='port', default=8001, help='Server port')
+        dest='port', type=int, default=8001, help='Server port')
     parser.add_argument(
         '-v, --verbose',
         dest='verbose', action='store_true', help='Verbose')

@@ -63,6 +63,7 @@ class HRSlackBot(object):
         self.icon_url = 'https://avatars.slack-edge.com/2016-05-30/46725216032_4983112db797f420c0b5_48.jpg'
         self.session_manager = SessionManager()
         self.weights = kwargs.get('weights')
+        self.enable_trace = kwargs.get('enable_trace')
 
     def send_message(self, channel, attachments):
         self.sc.api_call(
@@ -201,7 +202,7 @@ class HRSlackBot(object):
             answer = response.get('text')
             trace = response.get('trace', '')
             botid = response.get('botid', '')
-            if trace:
+            if trace and self.enable_trace:
                 formated_trace = format_trace(trace)
                 if formated_trace:
                     title = 'answered by {}\n\ntrace:\n{}'.format(botid, '\n'.join(formated_trace))
@@ -227,10 +228,13 @@ if __name__ == '__main__':
         '--port', default='8001', help='Port string of chatbot server')
     parser.add_argument(
         '--weights', help='Chatbot tier weights')
+    parser.add_argument(
+        '--enable_trace', default=False, action='store_true',
+        help='If it is enabled each response will show an extra trace message')
     args = parser.parse_args()
 
     while True:
         try:
-            HRSlackBot(args.host, args.port, args.botname, weights=args.weights).run()
+            HRSlackBot(args.host, args.port, args.botname, weights=args.weights, enable_trace=args.enable_trace).run()
         except Exception as ex:
             logger.error(ex)

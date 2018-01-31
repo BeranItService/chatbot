@@ -96,7 +96,9 @@ def _init_mongodb(mongodb, host='localhost', port=27017,
         socketTimeoutMS=2000, serverSelectionTimeoutMS=1000):
     import pymongo
     def _init_mongo_client(mongodb):
-        while mongodb.client is None:
+        attempt = 0
+        active = False
+        while mongodb.client is None and attempt < 3:
             mongodb.client = pymongo.MongoClient(
                 'mongodb://{}:{}/'.format(host, port),
                 socketTimeoutMS=socketTimeoutMS,
@@ -104,11 +106,14 @@ def _init_mongodb(mongodb, host='localhost', port=27017,
             try:
                 mongodb.client.admin.command('ismaster')
                 logger.warn("Activate mongodb, %s", mongodb)
+                active = True
             except pymongo.errors.ConnectionFailure:
-                logger.error("Server not available")
+                attempt += 1
+                time.sleep(2)
                 mongodb.client = None
             time.sleep(0.2)
-
+        if not active:
+            logger.warn("MongoDB server is not available")
     timer = threading.Timer(0, _init_mongo_client, (mongodb,))
     timer.daemon = True
     timer.start()

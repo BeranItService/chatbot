@@ -12,6 +12,7 @@ import datetime as dt
 import six
 import traceback
 import time
+import argparse
 
 logger = logging.getLogger('hr.chatbot.utils')
 
@@ -244,9 +245,7 @@ def detect_language(text):
         result['language'] == 'zh'
     return result
 
-
-if __name__ == '__main__':
-    logging.basicConfig()
+def test():
     text = '''My mind is built using Hanson Robotics' character engine, a simulated humanlike brain that runs inside a personal computer. Within this framework, Hanson has modelled Phil's personality and emotions, allowing you to talk with Phil through me, using speech recognition, natural language understanding, and computer vision such as face recognition, and animation of the robotic muscles in my face.'''
     print len(text)
     print text
@@ -269,3 +268,13 @@ if __name__ == '__main__':
     print get_detected_object(100)
     print do_translate(u"你好", 'ru-RU')[1]
     print do_translate(u"о Кларе с Карлом во мраке все раки шумели в драке", 'cmn-Hans-CN')[1]
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--location', action='store_true', help='print the current city based on IP')
+    args = parser.parse_args()
+    if args.location:
+        location  = get_location()
+        print location['city']

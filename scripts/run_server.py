@@ -95,7 +95,7 @@ def _chat():
     data = request.args
     question = data.get('question')
     session = data.get('session')
-    lang = data.get('lang', 'en')
+    lang = data.get('lang', 'en-US')
     query = data.get('query', 'false')
     query = query.lower() == 'true'
     request_id = request.headers.get('X-Request-Id')
@@ -117,7 +117,7 @@ def _batch_chat():
     questions = request.form.get('questions')
     questions = json.loads(questions)
     session = request.form.get('session')
-    lang = request.form.get('lang', 'en')
+    lang = request.form.get('lang', 'en-US')
     responses = []
     for idx, question in questions:
         response, ret = ask(str(question), lang, session)

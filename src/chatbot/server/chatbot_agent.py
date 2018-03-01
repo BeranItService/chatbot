@@ -370,7 +370,14 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
             if good_match:
                 if response.get('exact_match') or response.get('ok_match'):
                     logger.info("{} has good match".format(character.id))
-                    answered = True
+                    if response.get('gambit'):
+                        if random.random() > 0.3:
+                            cross_trace.append((character.id, stage, 'Ignore gambit answer. Answer: {}, Trace: {}'.format(answer, trace)))
+                            cached_responses['gambit'].append((response, answer, character))
+                        else:
+                            answered = True
+                    else:
+                        answered = True
                 else:
                     if not response.get('bad'):
                         logger.info("{} has no good match".format(character.id))
@@ -382,12 +389,6 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
             elif DISABLE_QUIBBLE and response.get('quibble'):
                 cross_trace.append((character.id, stage, 'Quibble answer. Answer: {}, Trace: {}'.format(answer, trace)))
                 cached_responses['quibble'].append((response, answer, character))
-            elif response.get('gambit'):
-                if random.random() > 0.3:
-                    cross_trace.append((character.id, stage, 'Ignore gambit answer. Answer: {}, Trace: {}'.format(answer, trace)))
-                    cached_responses['gambit'].append((response, answer, character))
-                else:
-                    answered = True
             else:
                 answered = True
             if answered:
@@ -578,6 +579,8 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         return response, INVALID_QUESTION
 
     botname = sess.sdata.botname
+    if not botname:
+        logger.error("No botname is specified")
     user = sess.sdata.user
     response['OriginalQuestion'] = question
 

@@ -72,7 +72,7 @@ def norm(s):
     return s
 
 def shorten(text, cutoff):
-    if len(text) < cutoff:
+    if not text or len(text) < cutoff:
         return text, ''
     sens = text.split('.')
     ret = ''

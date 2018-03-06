@@ -260,7 +260,7 @@ class Chatbot():
 
     def write_request(self, request_id, chatmessages):
         requests = []
-        columns = ['Datetime', 'RequestID', 'Index', 'Source', 'AudioPath', 'Transcript']
+        columns = ['Datetime', 'RequestID', 'Index', 'Source', 'AudioPath', 'Transcript', 'Confidence']
         for i, msg in enumerate(chatmessages):
             audio = os.path.basename(msg.audio_path)
             request = {
@@ -271,6 +271,7 @@ class Chatbot():
                 'AudioPath': audio,
                 'Transcript': msg.utterance,
                 'RunID': self.run_id,
+                'Confidence': msg.confidence,
             }
             requests.append(request)
         if self.mongodb.client is not None:

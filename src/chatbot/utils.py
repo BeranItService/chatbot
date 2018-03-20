@@ -172,9 +172,9 @@ def parse_weather(weather):
             prop['weather'] = weather['weather'][0]['description']
     return prop
 
-def check_online(url, port='80'):
+def check_online(url='google.com', port='80'):
     try:
-        subprocess.check_call(['nc', '-z', '-w', '1', str(url), str(port)])
+        subprocess.check_call(['ping', '-q', '-w', '1', '-c', '1', str(url)])
     except Exception as ex:
         logger.error(ex)
         return False

@@ -3,13 +3,23 @@ from chatbot.aiml import Kernel
 import logging
 import re
 from config import CHARACTER_PATH
-from chatbot.utils import shorten
+from chatbot.utils import shorten, check_online
 from collections import defaultdict
 from pprint import pformat
+from functools import wraps
 
 TYPE_AIML='aiml'
 TYPE_CS='cs'
 TYPE_DEFAULT='default'
+
+def require_online(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if check_online():
+            return func(*args, **kwargs)
+        else:
+            return
+    return wrapper
 
 class Character(object):
 

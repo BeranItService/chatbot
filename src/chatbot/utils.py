@@ -176,7 +176,6 @@ def check_online(url='google.com', port='80'):
     try:
         subprocess.check_call(['ping', '-q', '-w', '1', '-c', '1', str(url)])
     except Exception as ex:
-        logger.error(ex)
         return False
     return True
 

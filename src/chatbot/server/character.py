@@ -11,14 +11,20 @@ from functools import wraps
 TYPE_AIML='aiml'
 TYPE_CS='cs'
 TYPE_DEFAULT='default'
+logger = logging.getLogger(__name__)
 
-def require_online(func):
+def respond_requires_internet(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if check_online():
             return func(*args, **kwargs)
         else:
-            return
+            logger.warn("No Internet or unstable Internet")
+            dummpy_response = {
+                'text': '',
+                'trace': 'No Internet',
+            }
+            return dummpy_response
     return wrapper
 
 class Character(object):

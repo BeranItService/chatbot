@@ -371,7 +371,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                 if response.get('exact_match') or response.get('ok_match'):
                     logger.info("{} has good match".format(character.id))
                     if response.get('gambit'):
-                        if random.random() > 0.3:
+                        if random.random() > 0.1:
                             cross_trace.append((character.id, stage, 'Ignore gambit answer. Answer: {}, Trace: {}'.format(answer, trace)))
                             cached_responses['gambit'].append((response, answer, character))
                         else:

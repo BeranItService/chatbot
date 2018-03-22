@@ -174,7 +174,8 @@ def parse_weather(weather):
 
 def check_online(url='google.com', port='80'):
     try:
-        subprocess.check_call(['ping', '-q', '-w', '1', '-c', '1', str(url)])
+        subprocess.check_output(['ping', '-q', '-w', '1', '-c', '1', str(url)],
+            stderr=subprocess.STDOUT)
     except Exception as ex:
         return False
     return True

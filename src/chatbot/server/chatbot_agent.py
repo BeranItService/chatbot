@@ -443,6 +443,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                     hit_character = c
                     answer = _answer
                     response = _response
+                    break
 
     # Check the last used character
     if not answer:

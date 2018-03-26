@@ -33,7 +33,7 @@ class ResponseCache(object):
         # each additional character over the 10 characters, adds 30 seconds
         # delay before that AIML string is allowed to repeat.
         same_answers = [r for r in self.record if norm(r['Answer']) == norm(answer)]
-        time_elapsed = (dt.datetime.now() - same_answers[-1]['Datetime']
+        time_elapsed = (dt.datetime.utcnow() - same_answers[-1]['Datetime']
                         ).seconds if same_answers else 0
         if max(0, len(norm(answer)) - 10) * 30 <= time_elapsed:
             logger.debug("Allow repeat answer {}".format(answer))
@@ -53,7 +53,7 @@ class ResponseCache(object):
         return True
 
     def add(self, question, answer, datetime=None, **kwargs):
-        time = datetime or dt.datetime.now()
+        time = datetime or dt.datetime.utcnow()
         record = {
             'Datetime': time,
             'Question': question,

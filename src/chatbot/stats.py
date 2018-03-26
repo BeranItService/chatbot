@@ -12,7 +12,7 @@ trace_pattern = re.compile(
 
 
 def collect_history_data(history_dir, days):
-    today = dt.datetime.now()
+    today = dt.datetime.utcnow()
     dfs = []
     for d in glob.glob('{}/*'.format(history_dir)):
         if os.path.isdir(d):

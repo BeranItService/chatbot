@@ -42,7 +42,7 @@ class Session(object):
         self.sid = sid
         self.sdata = SessionData()
         self.cache = ResponseCache()
-        self.created = dt.datetime.now()
+        self.created = dt.datetime.utcnow()
         self.characters = []
         dirname = os.path.join(HISTORY_DIR, self.created.strftime('%Y%m%d'))
         test_dirname = os.path.join(
@@ -98,7 +98,7 @@ class Session(object):
             for key in ['weather', 'location', 'temperature']:
                 if key in prop:
                     context[key] = prop.get(key)
-            now = dt.datetime.now()
+            now = dt.datetime.utcnow()
             context['time'] = dt.datetime.strftime(now, '%I:%M %p')
             context['date'] = dt.datetime.strftime(now, '%B %d %Y')
             try:
@@ -244,7 +244,7 @@ class SessionManager(object):
     def _clean_sessions(self):
         while True:
             remove_sessions = []
-            since = dt.datetime.now()
+            since = dt.datetime.utcnow()
             for sid, s in self._sessions.iteritems():
                 if s.since_idle(since) > SESSION_REMOVE_TIMEOUT:
                     remove_sessions.append(sid)

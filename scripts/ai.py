@@ -90,7 +90,7 @@ class Chatbot():
 
         self.node_name = rospy.get_name()
         self.output_dir = os.path.join(HR_CHATBOT_REQUEST_DIR,
-            dt.datetime.strftime(dt.datetime.now(), '%Y%m%d'))
+            dt.datetime.strftime(dt.datetime.utcnow(), '%Y%m%d'))
         if not os.path.isdir(self.output_dir):
             os.makedirs(self.output_dir)
         self.requests_fname = os.path.join(
@@ -264,7 +264,7 @@ class Chatbot():
         for i, msg in enumerate(chatmessages):
             audio = os.path.basename(msg.audio_path)
             request = {
-                'Datetime':  dt.datetime.now(),
+                'Datetime':  dt.datetime.utcnow(),
                 'RequestID': request_id,
                 'Index': i,
                 'Source': msg.source,

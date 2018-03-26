@@ -185,7 +185,7 @@ def get_emotion(timedelta=3):
     if os.path.isfile(emotion_file):
         df = pd.read_csv(emotion_file, header=None, parse_dates=[0])
         df.columns = ['Datetime', 'Emotion']
-        df = df[(dt.datetime.now()-df['Datetime'])/np.timedelta64(1, 's')<timedelta]
+        df = df[(dt.datetime.utcnow()-df['Datetime'])/np.timedelta64(1, 's')<timedelta]
         if not df.empty:
             return df.tail(1).iloc[0].Emotion
 
@@ -194,7 +194,7 @@ def get_detected_object(timedelta=10):
     if os.path.isfile(object_file):
         df = pd.read_csv(object_file, header=None, parse_dates=[0])
         df.columns = ['Datetime', 'Item']
-        df = df[(dt.datetime.now()-df['Datetime'])/np.timedelta64(1, 's')<timedelta]
+        df = df[(dt.datetime.utcnow()-df['Datetime'])/np.timedelta64(1, 's')<timedelta]
         if not df.empty:
             item = df.tail(1).iloc[0].Item
             logger.warn("Get item {}".format(item))

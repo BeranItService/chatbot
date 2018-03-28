@@ -114,7 +114,7 @@ def set_weights(param, lang, sid):
         return False, "No session"
 
     if param == 'reset':
-        sess.sdata.weights = {}
+        sess.session_context.weights = {}
         return True, "Weights are reset"
 
     weights = {}
@@ -135,15 +135,15 @@ def set_weights(param, lang, sid):
         logger.error(traceback.format_exc())
         return False, "Wrong weight format"
 
-    sess.sdata.weights = weights
+    sess.session_context.weights = weights
     return True, "Weights are updated"
 
 def get_weights(characters, sess):
     weights = []
-    if hasattr(sess.sdata, 'weights') and sess.sdata.weights:
+    if hasattr(sess.session_context, 'weights') and sess.session_context.weights:
         for c in characters:
-            if c.id in sess.sdata.weights:
-                weights.append(sess.sdata.weights.get(c.id))
+            if c.id in sess.session_context.weights:
+                weights.append(sess.session_context.weights.get(c.id))
             else:
                 weights.append(c.weight)
     else:
@@ -234,7 +234,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
         return
 
     used_charaters = []
-    data = sess.get_session_data()
+    data = sess.session_context
     user = getattr(data, 'user')
     botname = getattr(data, 'botname')
     weights = get_weights(characters, sess)
@@ -526,11 +526,11 @@ def get_responding_characters(lang, sid):
     sess = session_manager.get_session(sid)
     if sess is None:
         return []
-    if not hasattr(sess.sdata, 'botname'):
+    if not hasattr(sess.session_context, 'botname'):
         return []
 
-    botname = sess.sdata.botname
-    user = sess.sdata.user
+    botname = sess.session_context.botname
+    user = sess.session_context.user
 
     # current character > local character with the same name > solr > generic
     responding_characters = get_characters_by_name(
@@ -579,10 +579,11 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     if not question or not question.strip():
         return response, INVALID_QUESTION
 
-    botname = sess.sdata.botname
+    botname = sess.session_context.botname
     if not botname:
         logger.error("No botname is specified")
-    user = sess.sdata.user
+    user = sess.session_context.user
+    client_id = sess.session_context.client_id
     response['OriginalQuestion'] = question
 
     input_translated = False
@@ -669,17 +670,25 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
                 logger.error(traceback.format_exc())
                 return response, TRANSLATE_ERROR
 
-        sess.add(response['OriginalQuestion'], response.get('text'), AnsweredBy=response['AnsweredBy'],
-                    User=user, BotName=botname, Trace=response['trace'],
-                    Revision=REVISION, Lang=lang,
-                    ModQuestion=response['ModQuestion'],
-                    RequestId=request_id,Marker=kwargs.get('marker'),
-                    TranslateInput=input_translated,
-                    TranslateOutput=output_translated,
-                    TranslatedQuestion=question,
-                    OriginalAnswer=response['OriginalAnswer'],
-                    RunID=kwargs.get('run_id'),
-                    Topic=response.get('topic'),
+        sess.add(
+            response['OriginalQuestion'],
+            response.get('text'),
+            AnsweredBy=response['AnsweredBy'],
+            User=user,
+            ClientID=client_id,
+            BotName=botname,
+            Trace=response['trace'],
+            Revision=REVISION,
+            Lang=lang,
+            ModQuestion=response['ModQuestion'],
+            RequestId=request_id,
+            Marker=kwargs.get('marker'),
+            TranslateInput=input_translated,
+            TranslateOutput=output_translated,
+            TranslatedQuestion=question,
+            OriginalAnswer=response['OriginalAnswer'],
+            RunID=kwargs.get('run_id'),
+            Topic=response.get('topic'),
         )
 
         logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))

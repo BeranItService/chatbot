@@ -22,10 +22,25 @@ except ImportError as ex:
 
 ROBOT_NAME = os.environ.get('NAME', 'default')
 
-class SessionData(object):
+class SessionContext(dict):
 
     def __init__(self):
         self.context = defaultdict(dict)
+
+    def __setitem__(self, key, item):
+        self.__dict__[key] = item
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+    def __len__(self):
+        return len(self.__dict__)
+
+    def __delitem__(self, key):
+        del self.__dict__[key]
+
+    def __repr__(self):
+        return repr(self.__dict__)
 
     def set_context(self, cid, context):
         self.context[cid].update(context)
@@ -40,7 +55,7 @@ class Session(object):
 
     def __init__(self, sid):
         self.sid = sid
-        self.sdata = SessionData()
+        self.session_context = SessionContext()
         self.cache = ResponseCache()
         self.created = dt.datetime.utcnow()
         self.characters = []
@@ -56,7 +71,6 @@ class Session(object):
         self.test = False
         self.last_used_character = None
         self.open_character = None
-        self.attributes = {}
 
     def set_test(self, test):
         if test:
@@ -130,9 +144,6 @@ class Session(object):
         else:
             self.dump_file = self.fname
         return self.test or self.cache.dump(self.dump_file)
-
-    def get_session_data(self):
-        return self.sdata
 
     def since_idle(self, since):
         if self.last_active_time is not None:
@@ -216,7 +227,10 @@ class SessionManager(object):
             return False
         if sid is None:
             return False
-        self._sessions[sid] = Session(sid)
+        session = Session(sid)
+        session.session_context.user = user
+        session.session_context.client_id = client_id
+        self._sessions[sid] = session
         self._users[client_id][user] = sid
         return True
 

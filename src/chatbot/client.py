@@ -308,7 +308,7 @@ For example, port 8001
 
     def do_lang(self, line):
         lang = line.strip()
-        if lang in ['en', 'zh']:
+        if lang in ['en-US']:
             self.lang = lang
             self.stdout.write("Set lang to {}\n".format(self.lang))
         else:
@@ -319,7 +319,7 @@ For example, port 8001
         self.stdout.write("Set language.\n")
 
     def do_c(self, line):
-        reset_session()
+        self.reset_session()
 
     def reset_session(self):
         try:

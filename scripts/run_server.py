@@ -181,8 +181,8 @@ def _start_session():
     sid = session_manager.start_session(
         client_id=client_id, user=user, test=test, refresh=refresh)
     sess = session_manager.get_session(sid)
-    sess.sdata.botname = botname
-    sess.sdata.user = user
+    sess.session_context.botname = botname
+    sess.session_context.user = user
     return Response(json_encode({'ret': 0, 'sid': str(sid)}),
                     mimetype="application/json")
 
@@ -204,8 +204,8 @@ def _set_weights():
     ret, response = set_weights(param, lang, sid)
     if ret:
         sess = session_manager.get_session(sid)
-        if sess and hasattr(sess.sdata, 'weights'):
-            logger.info("Set weights {} successfully".format(sess.sdata.weights))
+        if sess and hasattr(sess.session_context, 'weights'):
+            logger.info("Set weights {} successfully".format(sess.session_context.weights))
     else:
         logger.info("Set weights failed.")
     return Response(json_encode({'ret': ret, 'response': response}),

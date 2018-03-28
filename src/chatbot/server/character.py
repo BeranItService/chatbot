@@ -77,13 +77,13 @@ class Character(object):
 class DefaultCharacter(Character):
 
     def set_context(self, session, context):
-        session.sdata.set_context(self.id, context)
+        session.session_context.set_context(self.id, context)
 
     def get_context(self, session):
-        return session.sdata.get_context(self.id)
+        return session.session_context.get_context(self.id)
 
     def refresh(self, session):
-        session.sdata.reset_context(self.id)
+        session.session_context.reset_context(self.id)
 
 def replace_aiml_abs_path(trace):
     if isinstance(trace, list):

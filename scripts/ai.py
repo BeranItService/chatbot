@@ -59,8 +59,8 @@ class Chatbot():
     def __init__(self):
         self.botname = rospy.get_param('botname', 'sophia')
         self.client = Client(
-            HR_CHATBOT_AUTHKEY, response_listener=self,
-            botname=self.botname, stdout=Console())
+            HR_CHATBOT_AUTHKEY, self.botname, response_listener=self,
+            stdout=Console())
         self.client.chatbot_url = rospy.get_param(
             'chatbot_url', 'http://localhost:8001')
         # chatbot now saves a bit of simple state to handle sentiment analysis
@@ -152,6 +152,7 @@ class Chatbot():
     def ask(self, chatmessages, query=False):
         if chatmessages and len(chatmessages) > 0:
             self.client.lang = chatmessages[0].lang
+            self.client.set_user(chatmessages[0].source)
         else:
             logger.error("No language is specified")
             return

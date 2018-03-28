@@ -182,7 +182,6 @@ def _start_session():
         client_id=client_id, user=user, test=test, refresh=refresh)
     sess = session_manager.get_session(sid)
     sess.session_context.botname = botname
-    sess.session_context.user = user
     return Response(json_encode({'ret': 0, 'sid': str(sid)}),
                     mimetype="application/json")
 
@@ -191,7 +190,11 @@ def _start_session():
 @requires_auth
 def _sessions():
     sessions = session_manager.list_sessions()
-    return Response(json_encode({'ret': 0, 'response': sessions}),
+    response = []
+    for session in sessions:
+        response.append('%s/%s/%s' % (session.sid,
+            session.session_context.client_id, session.session_context.user))
+    return Response(json_encode({'ret': 0, 'response': response}),
                     mimetype="application/json")
 
 @app.route(ROOT + '/set_weights', methods=['GET'])

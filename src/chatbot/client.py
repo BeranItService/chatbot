@@ -561,7 +561,7 @@ Reset the weight of tiers to their defaults.
             '{}/sessions'.format(self.root_url), params=params)
         sessions = r.json().get('response')
         if sessions:
-            self.stdout.write('sessions: {}\n'.format('\n'.join(sessions)))
+            self.stdout.write('sessions:\n{}\n'.format('\n'.join(sessions)))
         else:
             self.stdout.write('no session\n')
 
@@ -583,6 +583,8 @@ Reset the weight of tiers to their defaults.
             self.user = line
             self.prompt = '[%s]: ' % self.user
             self.start_session()
+
+    set_user = do_user
 
     def help_user(self):
         s = """

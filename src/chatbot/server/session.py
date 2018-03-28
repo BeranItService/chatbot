@@ -268,7 +268,7 @@ class SessionManager(object):
             time.sleep(0.1)
 
     def list_sessions(self):
-        return self._sessions.keys()
+        return self._sessions.values()
 
 
 class ChatSessionManager(SessionManager):

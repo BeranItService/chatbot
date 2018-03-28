@@ -17,7 +17,7 @@ sys.setdefaultencoding('utf-8')
 
 logger = logging.getLogger('hr.chatbot.client')
 
-def get_default_username():
+def get_client_id():
     import subprocess
     user = subprocess.check_output('id -nu', shell=True).strip()
     host = subprocess.check_output('hostname', shell=True).strip()
@@ -32,23 +32,27 @@ ERRORS = {
 
 class Client(cmd.Cmd, object):
 
-    VERSION = 'v1.1'
+    VERSION = 'v2.0'
 
-    def __init__(self, key, response_listener=None, username=None, botname='sophia',
+    def __init__(self, client_key, botname, client_id=None,
+            username=None,
+            response_listener=None,
             host='localhost', port='8001', test=False,
             *args, **kwargs):
         """
-        key: The authentication key for chatbot server.
-        response_listener: The object that has implemented on_response.
-        username: The user name.
-        botname: The bot name.
-        host: The host name of chatbot server.
-        port: The port of the host.
-        test: If the session is a test session.
+        client_key: key of the client id for authentication
+        client_id: client id
+        username: user name
+        botname: bot name
+        response_listener: the instance that has implemented on_response
+        host: the host name of chatbot server
+        port: the port of the chatbot server
+        test: whether if the session is a test session or not
         """
         super(Client, self).__init__(*args, **kwargs)
-        self.user = username or get_default_username()
-        self.key = key
+        self.user = username or get_client_id()
+        self.client_id = client_id or get_client_id()
+        self.client_key = client_key
         if response_listener:
             assert hasattr(response_listener, 'on_response') and \
                 callable(response_listener.on_response)
@@ -96,7 +100,8 @@ class Client(cmd.Cmd, object):
 
     def start_session(self, new=False):
         params = {
-            "Auth": self.key,
+            "client_id": self.client_id,
+            "Auth": self.client_key,
             "botname": self.botname,
             "user": self.user,
             "test": self.test,
@@ -130,7 +135,7 @@ class Client(cmd.Cmd, object):
             "question": question.strip(),
             "session": self.session,
             "lang": self.lang,
-            "Auth": self.key,
+            "Auth": self.client_key,
             "query": query,
             "marker": self.marker,
             "run_id": self.run_id,
@@ -162,14 +167,14 @@ class Client(cmd.Cmd, object):
         return response
 
     def list_chatbot(self):
-        params = {'Auth': self.key, 'lang': self.lang, 'session': self.session}
+        params = {'Auth': self.client_key, 'lang': self.lang, 'session': self.session}
         r = requests.get(
             '{}/chatbots'.format(self.root_url), params=params)
         chatbots = r.json().get('response')
         return chatbots
 
     def list_chatbot_names(self):
-        params = {'Auth': self.key, 'lang': self.lang, 'session': self.session}
+        params = {'Auth': self.client_key, 'lang': self.lang, 'session': self.session}
         r = requests.get(
             '{}/bot_names'.format(self.root_url), params=params)
         names = r.json().get('response')
@@ -320,7 +325,7 @@ For example, port 8001
         try:
             params = {
                 "session": "{}".format(self.session),
-                'Auth': self.key
+                'Auth': self.client_key
             }
             r = requests.get(
                 '{}/reset_session'.format(self.root_url), params=params)
@@ -349,7 +354,7 @@ For example, port 8001
                 line = ','.join(['{}={}'.format(i, w) for i, w in enumerate(line.split(','))])
             params = {
                 "param": line,
-                "Auth": self.key,
+                "Auth": self.client_key,
                 "lang": self.lang,
                 "session": self.session
             }
@@ -406,35 +411,6 @@ Reset the weight of tiers to their defaults.
 """
         self.stdout.write(s)
 
-    def do_upload(self, line):
-        if not os.path.isfile(line):
-            self.stdout.write('File "{}" is not found\n'.format(line))
-            return
-        files = {'zipfile': open(line, 'rb')}
-        params = {
-            "user": self.user,
-            "Auth": self.key,
-            "lang": 'en-US'
-        }
-        try:
-            r = requests.post(
-                '{}/upload_character'.format(self.root_url),
-                files=files, data=params)
-            ret = r.json().get('ret')
-            response = r.json().get('response')
-            self.stdout.write(response)
-            self.stdout.write('\n')
-        except Exception:
-            self.stdout.write('{}\n'.format(ex))
-
-    def help_upload(self):
-        s = """
-Upload character package.
-Syntax: upload package
-
-"""
-        self.stdout.write(s)
-
     def ping(self):
         try:
             r = requests.get('{}/ping'.format(self.root_url))
@@ -474,7 +450,7 @@ Syntax: upload package
             "session": self.session,
             "rate": rate,
             "index": -1,
-            "Auth": self.key
+            "Auth": self.client_key
         }
         r = requests.get('{}/rate'.format(self.root_url), params=params)
         ret = r.json().get('ret')
@@ -504,7 +480,7 @@ Syntax: upload package
     def do_dump(self, line):
         params = {
             "session": self.session,
-            "Auth": self.key
+            "Auth": self.client_key
         }
         r = requests.get(
             '{}/session_history'.format(self.root_url), params=params)
@@ -533,7 +509,7 @@ Syntax: upload package
         else:
             lookback = 7
         params = {
-            "Auth": self.key,
+            "Auth": self.client_key,
             "lookback": lookback
         }
         r = requests.get('{}/stats'.format(self.root_url), params=params)
@@ -579,7 +555,7 @@ Syntax: upload package
 
     def do_list_sessions(self, line):
         params = {
-            "Auth": self.key
+            "Auth": self.client_key
         }
         r = requests.get(
             '{}/sessions'.format(self.root_url), params=params)
@@ -626,7 +602,7 @@ Syntax: user <user name>
             self.help_sc()
             return
         params = {
-            "Auth": self.key,
+            "Auth": self.client_key,
             "context": line,
             "session": self.session
         }
@@ -648,7 +624,7 @@ Syntax: sc key=value,key2=value2,...
     @retry(1)
     def do_rc(self, line):
         params = {
-            "Auth": self.key,
+            "Auth": self.client_key,
             "keys": line,
             "session": self.session
         }
@@ -671,7 +647,7 @@ Syntax: rc key,key2,key3,...
         if not self.session:
             self.start_session()
         params = {
-            "Auth": self.key,
+            "Auth": self.client_key,
             "session": self.session,
             "lang": self.lang,
         }
@@ -692,7 +668,7 @@ Syntax: rc key,key2,key3,...
         if not self.session:
             self.start_session()
         params = {
-            "Auth": self.key,
+            "Auth": self.client_key,
             "session": self.session,
             "message": line
         }
@@ -708,7 +684,7 @@ Syntax: rc key,key2,key3,...
 
     def set_config(self, **kwargs):
         params = {
-            "Auth": self.key,
+            "Auth": self.client_key,
         }
         params.update(kwargs)
         r = requests.get(

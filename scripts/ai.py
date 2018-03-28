@@ -3,15 +3,12 @@
 import rospy
 import os
 import logging
-import requests
-import json
 import time
 import datetime as dt
 import threading
 import re
 import uuid
 import pandas as pd
-import random
 import traceback
 
 from jinja2 import Template

@@ -56,6 +56,7 @@ class Session(object):
         self.test = False
         self.last_used_character = None
         self.open_character = None
+        self.attributes = {}
 
     def set_test(self, test):
         if test:
@@ -197,11 +198,11 @@ class SessionManager(object):
         if sid is not None:
             return self._sessions.get(sid, None)
 
-    def get_sid(self, user, key):
-        if user in self._users:
-            sessions = self._users.get(user)
+    def get_sid(self, client_id, user):
+        if client_id in self._users:
+            sessions = self._users.get(client_id)
             if sessions:
-                sid = sessions.get(key)
+                sid = sessions.get(user)
                 session = self._sessions.get(sid)
                 if session:
                     return sid
@@ -210,29 +211,29 @@ class SessionManager(object):
         return str(uuid.uuid1())
 
     @_threadsafe
-    def add_session(self, user, key, sid):
+    def add_session(self, client_id, user, sid):
         if sid in self._sessions:
             return False
         if sid is None:
             return False
         self._sessions[sid] = Session(sid)
-        self._users[user][key] = sid
+        self._users[client_id][user] = sid
         return True
 
-    def start_session(self, user, key, test=False, refresh=False):
+    def start_session(self, client_id, user, test=False, refresh=False):
         """
-        user: username
-        key: a string to identify session in user scope
+        client_id: client id
+        user: user to identify session in user scope
         test: if it's a session for test
         refresh: if true, it will generate new session id
         """
-        _sid = self.get_sid(user, key)
+        _sid = self.get_sid(client_id, user)
         if _sid and refresh:
             self.remove_session(_sid)
             _sid = None
         if not _sid:
             _sid = self.gen_sid()
-            self.add_session(user, key, _sid)
+            self.add_session(client_id, user, _sid)
         session = self.get_session(_sid)
         assert(session is not None)
         session.set_test(test)

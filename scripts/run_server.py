@@ -72,7 +72,7 @@ from chatbot.stats import history_stats
 
 json_encode = json.JSONEncoder().encode
 app = Flask(__name__)
-VERSION = 'v1.1'
+VERSION = 'v2.0'
 ROOT = '/{}'.format(VERSION)
 INCOMING_DIR = os.path.expanduser('~/.hr/aiml/incoming')
 
@@ -173,12 +173,13 @@ def _bot_names():
 def _start_session():
     botname = request.args.get('botname')
     user = request.args.get('user')
+    client_id = request.args.get('client_id')
     test = request.args.get('test', 'false')
     refresh = request.args.get('refresh', 'false')
     test = test.lower() == 'true'
     refresh = refresh.lower() == 'true'
     sid = session_manager.start_session(
-        user=user, key=botname, test=test, refresh=refresh)
+        client_id=client_id, user=user, test=test, refresh=refresh)
     sess = session_manager.get_session(sid)
     sess.sdata.botname = botname
     sess.sdata.user = user
@@ -264,60 +265,6 @@ def _update_config():
     ret, response = update_config(**data)
     return Response(json_encode({'ret': ret, 'response': response}),
                     mimetype="application/json")
-
-
-@app.route(ROOT + '/upload_character', methods=['POST'])
-def _upload_character():
-    auth = request.form.get('Auth')
-    if not auth or not check_auth(auth):
-        return authenticate()
-    try:
-        user = request.form.get('user')
-        zipfile = request.files.get('zipfile')
-        lang = request.files.get('lang')
-
-        saved_dir = os.path.join(INCOMING_DIR, user)
-        if not os.path.isdir(saved_dir):
-            os.makedirs(saved_dir)
-
-        # Clean the incoming directory
-        for f in os.listdir(saved_dir):
-            f = os.path.join(saved_dir, f)
-            if os.path.isfile(f):
-                os.unlink(f)
-            else:
-                shutil.rmtree(f, True)
-
-        saved_zipfile = os.path.join(saved_dir, zipfile.filename)
-        zipfile.save(saved_zipfile)
-        logger.info("Get zip file {}".format(zipfile.filename))
-
-        from loader import AIMLCharacterZipLoader
-        characters = AIMLCharacterZipLoader.load(
-            saved_zipfile, saved_dir, 'upload')
-        ret, response = True, "Done"
-        for character in characters:
-            character.local = False
-            character.id = '{}/{}'.format(user, character.id)
-            _ret, _response = add_character(character)
-            if not _ret:
-                ret = _ret
-                response = _response
-        os.remove(saved_zipfile)
-
-        return Response(json_encode({
-            'ret': ret,
-            'response': response
-        }),
-            mimetype="application/json")
-
-    except Exception as ex:
-        return Response(json_encode({
-            'ret': False,
-            'response': str(ex)
-        }),
-            mimetype="application/json")
-
 
 @app.route('/log')
 def _log():
@@ -431,10 +378,10 @@ def main():
     parser = argparse.ArgumentParser('Chatbot Server')
 
     parser.add_argument(
-        '-p, --port',
+        '-p', '--port',
         dest='port', type=int, default=8001, help='Server port')
     parser.add_argument(
-        '-v, --verbose',
+        '-v', '--verbose',
         dest='verbose', action='store_true', help='Verbose')
 
     option = parser.parse_args()

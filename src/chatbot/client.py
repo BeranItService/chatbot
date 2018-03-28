@@ -56,7 +56,7 @@ class Client(cmd.Cmd, object):
         self.test = test
         self.marker = 'default'
         self.run_id = ''
-        self.prompt = '[me]: '
+        self.prompt = '[%s]: ' % self.user
         self.botname = botname
         self.chatbot_ip = host
         self.chatbot_port = port
@@ -601,6 +601,19 @@ Syntax: upload package
 
     def help_ns(self):
         self.stdout.write('Start new session\n')
+
+    def do_user(self, line):
+        if line:
+            self.user = line
+            self.prompt = '[%s]: ' % self.user
+            self.start_session()
+
+    def help_user(self):
+        s = """
+Change user
+Syntax: user <user name>
+"""
+        self.stdout.write(s)
 
     @retry(1)
     def do_sc(self, line):

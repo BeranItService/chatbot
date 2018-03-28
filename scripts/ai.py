@@ -152,7 +152,8 @@ class Chatbot():
     def ask(self, chatmessages, query=False):
         if chatmessages and len(chatmessages) > 0:
             self.client.lang = chatmessages[0].lang
-            self.client.set_user(chatmessages[0].source)
+            if chatmessages[0].source != 'web':
+                self.client.set_user(chatmessages[0].source)
         else:
             logger.error("No language is specified")
             return

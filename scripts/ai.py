@@ -152,6 +152,9 @@ class Chatbot():
 
         self.perception_users = {}
 
+        #XXX Workaround the TTS problem that the first chatbot response is lost
+        self._response_publisher.publish(TTS(text='ppp', lang='en-US'))
+
     def _threadsafe(f):
         def wrap(self, *args, **kwargs):
             self._locker.lock()

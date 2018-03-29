@@ -22,7 +22,8 @@ from dynamic_reconfigure.server import Server
 import dynamic_reconfigure.client
 from chatbot.cfg import ChatbotConfig
 from chatbot.client import Client
-from blender_api_msgs.msg import SetGesture
+from blender_api_msgs.msg import SetGesture, Target
+from r2_perception.msg import Forget, ForgetAll, Assign, State
 
 logger = logging.getLogger('hr.chatbot.ai')
 HR_CHATBOT_AUTHKEY = os.environ.get('HR_CHATBOT_AUTHKEY', 'AAAAB3NzaC')
@@ -136,6 +137,20 @@ class Chatbot():
 
         self._gesture_publisher = rospy.Publisher(
             '/blender_api/set_gesture', SetGesture, queue_size=1)
+        self._look_at_publisher = rospy.Publisher(
+            '/blender_api/set_face_target', Target, queue_size=1)
+
+        # r2_perception
+        self._perception_assign_publisher = rospy.Publisher(
+            'perception/api/assign', Assign, queue_size=1)
+        self._perception_forget_publisher = rospy.Publisher(
+            'perception/api/forget', Forget, queue_size=1)
+        self._perception_forget_all_publisher = rospy.Publisher(
+            'perception/api/forget_all', ForgetAll, queue_size=1)
+        self._perception_state_subscriber = rospy.Subscriber(
+            'perception/state', State, self._perception_state_callback)
+
+        self.perception_users = {}
 
     def _threadsafe(f):
         def wrap(self, *args, **kwargs):
@@ -146,27 +161,42 @@ class Chatbot():
                 self._locker.unlock()
         return wrap
 
+    def _perception_state_callback(self, msg):
+        self.perception_users = {}
+        for face in msg.faces:
+            self.perception_users[face.id] = face
+
+    def assign_name(self, face_id, name):
+        assign = Assign()
+        assign.id = face_id
+        assign.name = name
+        self._perception_assign_publisher.publish(assign)
+        logger.info("Assigned name %s to face id %s" % (name, face_id))
+
     def sentiment_active(self, active):
         self._sentiment_active = active
 
     def ask(self, chatmessages, query=False):
         if chatmessages and len(chatmessages) > 0:
             self.client.lang = chatmessages[0].lang
-            if chatmessages[0].source != 'web':
-                self.client.set_user(chatmessages[0].source)
+            if self.perception_users:
+                face_id = self.perception_users.keys()[0]
+                face = self.perception_users[face_id]
+                name = face.name
+                target = Target()
+                target.x = face.position.x
+                target.y = face.position.y
+                target.z = face.position.z
+                self._look_at_publisher.publish(target)
+                self.client.set_user(face_id)
+                if name:
+                    self.client.set_context('name={}'.format(name))
+                    logger.info("Set known name %s" % name)
+                logger.info("Look at %s %s position (%s %s %s)" % (
+                    face_id, name, target.x, target.y, target.z))
         else:
             logger.error("No language is specified")
             return
-
-        persons = rospy.get_param('/face_recognizer/current_persons', '')
-        if persons:
-            person = persons.split('|')[0]
-            person = person.title()
-            self.client.set_context('queryname={}'.format(person))
-            logger.info("Set queryname to {}".format(person))
-        else:
-            self.client.remove_context('queryname')
-            logger.info("Remove queryname")
 
         request_id = str(uuid.uuid1())
         question = ' '.join([msg.utterance for msg in chatmessages])
@@ -408,6 +438,15 @@ class Chatbot():
         context = self.client.get_context()
         context['sid'] = self.client.session
         for k, v in context.iteritems():
+            if k == 'name':
+                face_id = self.client.user
+                if face_id in self.perception_users:
+                    if not self.perception_users[face_id].name:
+                        self.assign_name(self.client.user, v)
+                    elif self.perception_users[face_id].name != v:
+                        self.assign_name(self.client.user, v)
+                        logger.warn("Update the name of face id %s from %s to %s" % (
+                            self.client.user, self.perception_users[face_id].name, v))
             rospy.set_param('{}/context/{}'.format(self.node_name, k), v)
             logger.info("Set param {}={}".format(k, v))
 

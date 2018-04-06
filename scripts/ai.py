@@ -175,13 +175,22 @@ class Chatbot():
             faces = self.perception_users.values()
             self.face_cache = []
             if faces:
+                faces = sorted(faces, key=lambda x: face.position.x*face.position.x+face.position.y*face.position.y+face.position.z*face.position.z)
                 for face in faces:
-                    logger.info("Percepted face %s, %s" % (face.id, face.name))
-                faces = sorted(faces, key=lambda x: (face.position.x*face.position.x+face.position.y*face.position.y+face.position.z*face.position.z))
-                if self.main_face and self.main_face.id != faces[0].id:
-                    logger.warn("Main face ID has been changed from %s to %s" % (self.main_face.id, faces[0].id))
-                self.main_face = faces[0]
-                logger.warn("Assigned main face ID %s" % self.main_face.id)
+                    distance = face.position.x*face.position.x+face.position.y*face.position.y+face.position.z*face.position.z
+                    logger.info("Percepted face %s, %s, %s" % (face.id, face.name, distance))
+                active_face = None
+                for face in faces:
+                    if face.is_speaking:
+                        active_face = face
+                if not active_face:
+                    active_face = faces[0]
+                if self.main_face is None:
+                    self.main_face = active_face
+                    logger.warn("Assigned main face ID %s" % self.main_face.id)
+                elif self.main_face.id != active_face.id:
+                    self.main_face = active_face
+                    logger.warn("Main face ID has been changed from %s to %s" % (self.main_face.id, active_face.id))
                 target = Target()
                 target.x = self.main_face.position.x
                 target.y = self.main_face.position.y

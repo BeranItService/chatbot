@@ -152,7 +152,7 @@ class Chatbot():
             'perception/state', State, self._perception_state_callback)
 
         self.perception_users = {}
-        self.named_users = {}
+        self.face_cache = []
         self.main_face = None
 
     def _threadsafe(f):
@@ -167,18 +167,21 @@ class Chatbot():
     def _perception_state_callback(self, msg):
         global count
         count += 1
+        self.face_cache.extend(msg.faces)
         if count % 20 == 0:
             self.perception_users = {}
-            faces = []
-            for face in msg.faces:
+            for face in self.face_cache:
                 self.perception_users[face.id] = face
-                faces.append(face)
-                logger.warn("Percepted face %s, %s" % (face.id, face.name))
+            faces = self.perception_users.values()
+            self.face_cache = []
             if faces:
+                for face in faces:
+                    logger.info("Percepted face %s, %s" % (face.id, face.name))
                 faces = sorted(faces, key=lambda x: (face.position.x*face.position.x+face.position.y*face.position.y+face.position.z*face.position.z))
                 if self.main_face and self.main_face.id != faces[0].id:
                     logger.warn("Main face ID has been changed from %s to %s" % (self.main_face.id, faces[0].id))
                 self.main_face = faces[0]
+                logger.warn("Assigned main face ID %s" % self.main_face.id)
                 target = Target()
                 target.x = self.main_face.position.x
                 target.y = self.main_face.position.y
@@ -187,7 +190,9 @@ class Chatbot():
                 logger.debug("Look at %s %s position (%s %s %s)" % (
                     self.main_face.id, self.main_face.name, target.x, target.y, target.z))
             else:
-                self.main_face = None
+                if self.main_face:
+                    logger.warn("Removed main face ID %s" % self.main_face.id)
+                    self.main_face = None
 
     def assign_name(self, face_id, name):
         assign = Assign()

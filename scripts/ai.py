@@ -30,6 +30,7 @@ HR_CHATBOT_AUTHKEY = os.environ.get('HR_CHATBOT_AUTHKEY', 'AAAAB3NzaC')
 HR_CHATBOT_REQUEST_DIR = os.environ.get('HR_CHATBOT_REQUEST_DIR') or \
     os.path.expanduser('~/.hr/chatbot/requests')
 ROBOT_NAME = os.environ.get('NAME', 'default')
+count = 0
 
 def update_parameter(node, param, *args, **kwargs):
     client = dynamic_reconfigure.client.Client(node, *args, **kwargs)
@@ -151,10 +152,8 @@ class Chatbot():
             'perception/state', State, self._perception_state_callback)
 
         self.perception_users = {}
-
-        #XXX Workaround the TTS problem that the first chatbot response is lost
-        time.sleep(2)
-        self._response_publisher.publish(TTS(text='ppp', lang='en-US'))
+        self.named_users = {}
+        self.main_face = None
 
     def _threadsafe(f):
         def wrap(self, *args, **kwargs):
@@ -166,16 +165,41 @@ class Chatbot():
         return wrap
 
     def _perception_state_callback(self, msg):
-        self.perception_users = {}
-        for face in msg.faces:
-            self.perception_users[face.id] = face
+        global count
+        count += 1
+        if count % 20 == 0:
+            self.perception_users = {}
+            faces = []
+            for face in msg.faces:
+                self.perception_users[face.id] = face
+                faces.append(face)
+                logger.warn("Percepted face %s, %s" % (face.id, face.name))
+            if faces:
+                faces = sorted(faces, key=lambda x: (face.position.x*face.position.x+face.position.y*face.position.y+face.position.z*face.position.z))
+                if self.main_face and self.main_face.id != faces[0].id:
+                    logger.warn("Main face ID has been changed from %s to %s" % (self.main_face.id, faces[0].id))
+                self.main_face = faces[0]
+                target = Target()
+                target.x = self.main_face.position.x
+                target.y = self.main_face.position.y
+                target.z = self.main_face.position.z
+                self._look_at_publisher.publish(target)
+                logger.debug("Look at %s %s position (%s %s %s)" % (
+                    self.main_face.id, self.main_face.name, target.x, target.y, target.z))
+            else:
+                self.main_face = None
 
     def assign_name(self, face_id, name):
         assign = Assign()
         assign.id = face_id
         assign.name = name
         self._perception_assign_publisher.publish(assign)
+        time.sleep(1)
         logger.info("Assigned name %s to face id %s" % (name, face_id))
+
+    def forget_name(self, name):
+        self._perception_forget_publisher.publish(Forget(name))
+        logger.info("Forgot name %s" % name)
 
     def sentiment_active(self, active):
         self._sentiment_active = active
@@ -183,21 +207,12 @@ class Chatbot():
     def ask(self, chatmessages, query=False):
         if chatmessages and len(chatmessages) > 0:
             self.client.lang = chatmessages[0].lang
-            if self.perception_users:
-                face_id = self.perception_users.keys()[0]
-                face = self.perception_users[face_id]
-                name = face.name
-                target = Target()
-                target.x = face.position.x
-                target.y = face.position.y
-                target.z = face.position.z
-                self._look_at_publisher.publish(target)
-                self.client.set_user(face_id)
+            if self.main_face:
+                self.client.set_user(self.main_face.id)
+                name = self.main_face.name
                 if name:
                     self.client.set_context('name={}'.format(name))
-                    logger.info("Set known name %s" % name)
-                logger.info("Look at %s %s position (%s %s %s)" % (
-                    face_id, name, target.x, target.y, target.z))
+                    logger.info("Set client name %s" % name)
         else:
             logger.error("No language is specified")
             return
@@ -445,12 +460,21 @@ class Chatbot():
             if k == 'name':
                 face_id = self.client.user
                 if face_id in self.perception_users:
-                    if not self.perception_users[face_id].name:
-                        self.assign_name(self.client.user, v)
-                    elif self.perception_users[face_id].name != v:
-                        self.assign_name(self.client.user, v)
+                    name = self.perception_users[face_id].name
+                    if not name:
+                        self.assign_name(face_id, v)
+                    elif name != v:
+                        self.forget_name(name)
+                        self.assign_name(face_id, v)
                         logger.warn("Update the name of face id %s from %s to %s" % (
-                            self.client.user, self.perception_users[face_id].name, v))
+                            face_id, name, v))
+                    else:
+                        logger.warn("Nothing changed. Face id %s, name %s, context name %s" % (
+                            face_id, name, v))
+                else:
+                    logger.warn("Face %s is out of scene" % face_id)
+                    logger.warn("Perception face %s" % str(self.perception_users.keys()))
+                break
             rospy.set_param('{}/context/{}'.format(self.node_name, k), v)
             logger.info("Set param {}={}".format(k, v))
 

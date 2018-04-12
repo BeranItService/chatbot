@@ -232,6 +232,8 @@ class Chatbot():
         request_id = str(uuid.uuid1())
         question = ' '.join([msg.utterance for msg in chatmessages])
         logger.info("Asking {}".format(question))
+        #if self.main_face:
+        #    self.client.ask('[start]', query, request_id=request_id)
         self.client.ask(question, query, request_id=request_id)
         logger.info("Sent request {}".format(request_id))
         self.write_request(request_id, chatmessages)
@@ -467,6 +469,7 @@ class Chatbot():
         if rospy.has_param('{}/context'.format(self.node_name)):
             rospy.delete_param('{}/context'.format(self.node_name))
         context = self.client.get_context()
+        logger.warn("context %s" % context)
         context['sid'] = self.client.session
         for k, v in context.iteritems():
             if k == 'name':

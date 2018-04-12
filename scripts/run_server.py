@@ -246,7 +246,11 @@ def _get_context():
     data = request.args
     sid = data.get('session')
     lang = data.get('lang', 'en')
-    ret, response = get_context(sid, lang)
+    ret, _response = get_context(sid, lang)
+    response = {}
+    for k, v in _response.iteritems():
+        if isinstance(v, basestring) or isinstance(v, unicode):
+            response[k] = v
     return Response(json_encode({'ret': ret, 'response': response}),
                     mimetype="application/json")
 

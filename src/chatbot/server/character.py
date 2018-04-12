@@ -41,6 +41,7 @@ class Character(object):
         self.non_repeat = True
         self.logger = logging.getLogger('hr.chatbot.character.{}'.format(id))
         self.type = TYPE_DEFAULT
+        self.stateful = False
 
     def get_properties(self):
         return self.properties

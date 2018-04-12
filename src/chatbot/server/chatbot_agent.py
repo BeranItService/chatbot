@@ -182,7 +182,7 @@ def get_context(sid, lang):
     characters = get_responding_characters(lang, sid)
     context = {}
     for c in characters:
-        if c.type != TYPE_AIML and c.type != TYPE_CS:
+        if not c.stateful:
             continue
         try:
             context.update(c.get_context(sess))
@@ -637,25 +637,25 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         _response = _ask_characters(
             responding_characters, question, lang, sid, query, request_id, **kwargs)
 
-    if not query:
+    #if not query:
         # Sync session data
-        if sess.last_used_character is not None:
-            context = sess.last_used_character.get_context(sess)
-            for c in responding_characters:
-                if c.id == sess.last_used_character.id:
-                    continue
-                try:
-                    c.set_context(sess, context)
-                except NotImplementedError:
-                    pass
+        #if sess.last_used_character is not None:
+        #    context = sess.last_used_character.get_context(sess)
+        #    for c in responding_characters:
+        #        if c.id == sess.last_used_character.id:
+        #            continue
+        #        try:
+        #            c.set_context(sess, context)
+        #        except NotImplementedError:
+        #            pass
 
-            for c in responding_characters:
-                if c.type != TYPE_AIML:
-                    continue
-                try:
-                    c.check_reset_topic(sid)
-                except Exception:
-                    continue
+        #    for c in responding_characters:
+        #        if c.type != TYPE_AIML:
+        #            continue
+        #        try:
+        #            c.check_reset_topic(sid)
+        #        except Exception:
+        #            continue
 
     if _response is not None and _response.get('text'):
         response.update(_response)

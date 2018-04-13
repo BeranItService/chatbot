@@ -43,6 +43,7 @@ CHATBOT_LANGUAGE_DICT = {
     'pt': ['pt-BR', 'pt-PT'],
     'ru': ['ru-RU'],
     'es': ['es-AR', 'es-BO', 'es-CL', 'es-CO', 'es-CR', 'es-EC', 'es-SV', 'es-ES', 'es-US', 'es-GT', 'es-HN', 'es-MX', 'es-NI', 'es-PA', 'es-PY', 'es-PE', 'es-PR', 'es-DO', 'es-UY', 'es-VE'],
+    'tr': ['tr-TR'],
 }
 
 def query_city_info(name):

@@ -154,6 +154,7 @@ class Chatbot():
         self.perception_users = {}
         self.face_cache = []
         self.main_face = None
+        self.faces = {} # faceid(session) -> face
 
     def _threadsafe(f):
         def wrap(self, *args, **kwargs):
@@ -168,7 +169,7 @@ class Chatbot():
         global count
         count += 1
         self.face_cache.extend(msg.faces)
-        if count % 20 == 0:
+        if count % 30 == 0:
             self.perception_users = {}
             for face in self.face_cache:
                 self.perception_users[face.id] = face
@@ -221,10 +222,15 @@ class Chatbot():
             self.client.lang = chatmessages[0].lang
             if self.main_face:
                 self.client.set_user(self.main_face.id)
+                self.faces[self.main_face.id] = self.main_face
+                for face in self.faces.values():
+                    if face.id != self.main_face.id and face.name:
+                        self.client.set_context('known_name={}'.format(face.name))
+                        logger.info("Set know name %s" % face.name)
                 name = self.main_face.name
                 if name:
                     self.client.set_context('name={}'.format(name))
-                    logger.info("Set client name %s" % name)
+                    logger.info("Set context name %s" % name)
         else:
             logger.error("No language is specified")
             return

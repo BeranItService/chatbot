@@ -100,7 +100,7 @@ def get_location():
     location = None
     try:
         logger.info("Getting public IP address")
-        ip = subprocess.check_output(['wget', '--timeout', '3', '-qO-', 'ipinfo.io/ip']).strip()
+        ip = subprocess.check_output(['wget', '-t', '1', '--timeout', '3', '-qO-', 'ipinfo.io/ip']).strip()
         if not ip:
             logger.error("Public IP is invalid")
             return None

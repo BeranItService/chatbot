@@ -520,7 +520,8 @@ class Chatbot():
 
         if config.set_context:
             self.client.set_context(config.set_context)
-        self.client.set_marker(config.marker)
+        marker = '%s:%s' % (config.type_of_marker, config.marker)
+        self.client.set_marker(marker)
         self.mute = config.mute
         self.insert_behavior = config.insert_behavior
 

@@ -7,6 +7,7 @@ import datetime as dt
 import json
 import shutil
 import argparse
+import subprocess
 
 try:
     import colorlog
@@ -25,12 +26,21 @@ if 'HR_CHARACTER_PATH' not in os.environ:
 from chatbot.server.config import SERVER_LOG_DIR, HISTORY_DIR
 
 def init_logging():
-    if not os.path.isdir(SERVER_LOG_DIR):
-        os.makedirs(SERVER_LOG_DIR)
+    run_id = None
+    try:
+        run_id = subprocess.check_output('rosparam get /run_id'.split()).strip()
+    except Exception as ex:
+        run_id = None
+    ROS_LOG_DIR = os.environ.get('ROS_LOG_DIR', os.path.expanduser('~/.hr/log'))
+    server_log_dir = SERVER_LOG_DIR
+    if run_id is not None:
+        server_log_dir = os.path.join(ROS_LOG_DIR, run_id, 'chatbot')
+    if not os.path.isdir(server_log_dir):
+        os.makedirs(server_log_dir)
     log_config_file = '{}/{}.log'.format(
-        SERVER_LOG_DIR,
+        server_log_dir,
         dt.datetime.strftime(dt.datetime.utcnow(), '%Y%m%d%H%M%S'))
-    link_log_fname = os.path.join(SERVER_LOG_DIR, 'latest.log')
+    link_log_fname = os.path.join(server_log_dir, 'latest.log')
     if os.path.islink(link_log_fname):
         os.unlink(link_log_fname)
     os.symlink(log_config_file, link_log_fname)

@@ -155,6 +155,7 @@ class Chatbot():
         self.face_cache = []
         self.main_face = None
         self.faces = {} # faceid(session) -> face
+        self.current_user = None
 
     def _threadsafe(f):
         def wrap(self, *args, **kwargs):
@@ -220,7 +221,7 @@ class Chatbot():
     def ask(self, chatmessages, query=False):
         if chatmessages and len(chatmessages) > 0:
             self.client.lang = chatmessages[0].lang
-            if self.main_face:
+            if self.main_face: # visual perception
                 self.client.set_user(self.main_face.id)
                 self.faces[self.main_face.id] = self.main_face
                 for face in self.faces.values():
@@ -231,6 +232,17 @@ class Chatbot():
                 if name:
                     self.client.set_context('name={}'.format(name))
                     logger.info("Set context name %s" % name)
+            else:
+                if self.current_user:
+                    self.client.set_user(self.current_user)
+                    if '_' in self.current_user:
+                        first, last = self.current_user.split('_', 1)
+                        self.client.set_context('firstname={},lastname={},fullname={}'.format(first, last, self.current_user))
+                        logger.info("Set context first name %s" % first)
+                        logger.info("Set context last name %s" % last)
+                    else:
+                        self.client.set_context('name={}'.format(self.current_user))
+                        logger.info("Set context name %s" % self.current_user)
         else:
             logger.error("No language is specified")
             return
@@ -475,7 +487,7 @@ class Chatbot():
         if rospy.has_param('{}/context'.format(self.node_name)):
             rospy.delete_param('{}/context'.format(self.node_name))
         context = self.client.get_context()
-        logger.warn("context %s" % context)
+        logger.warn("Get context %s" % context)
         context['sid'] = self.client.session
         for k, v in context.iteritems():
             if k == 'name':
@@ -524,6 +536,14 @@ class Chatbot():
         self.client.set_marker(marker)
         self.mute = config.mute
         self.insert_behavior = config.insert_behavior
+        if config.preset_user and config.preset_user != self.current_user:
+            self.current_user = config.preset_user
+            config.user = ''
+            logger.info("Set preset user %s" % self.current_user)
+        if config.user and config.user != self.current_user:
+            self.current_user = config.user
+            config.preset_user = ''
+            logger.info("Set current user %s" % self.current_user)
 
         if config.reset_session:
             self.client.reset_session()

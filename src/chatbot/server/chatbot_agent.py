@@ -239,6 +239,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
     botname = getattr(data, 'botname')
     weights = get_weights(characters, sess)
     weighted_characters = zip(characters, weights)
+    weighted_characters = [wc for wc in weighted_characters if wc[1]>0]
     logger.info("Weights {}".format(weights))
 
     _question = preprocessing(question, lang, sess)

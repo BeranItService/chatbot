@@ -188,28 +188,28 @@ class Chatbot():
                     active_face = faces[0] # the closest face
                 if self.main_face is None:
                     self.main_face = active_face
-                    logger.warn("Assigned main face ID %s" % self.main_face.fsdk_id)
+                    logger.warn("Assigned main face ID %s, first name %s" % (self.main_face.fsdk_id, self.main_face.first_name))
                 elif self.main_face.fsdk_id != active_face.fsdk_id:
                     logger.warn("Main face ID has been changed from %s to %s" % (self.main_face.fsdk_id, active_face.fsdk_id))
                     self.main_face = active_face
             else:
                 if self.main_face:
-                    logger.warn("Removed main face ID %s" % self.main_face.fsdk_id)
+                    logger.warn("Removed main face ID %s, first name %s" % (self.main_face.fsdk_id, self.main_face.first_name))
                     self.main_face = None
 
-    def assign_name(self, face_id, firstname, lastname=None):
+    def assign_name(self, fsdk_id, firstname, lastname=None):
         assign = Assign()
-        assign.id = face_id
-        assign.first_name = firstname
-        assign.last_name = lastname
-        assign.formal_name = firstname
+        assign.fsdk_id = fsdk_id
+        assign.first_name = str(firstname)
+        assign.last_name = str(lastname)
+        assign.formal_name = str(firstname)
+        logger.info("Assigning name %s to face id %s" % (firstname, fsdk_id))
         self._perception_assign_publisher.publish(assign)
-        time.sleep(1)
-        logger.info("Assigned name %s to face id %s" % (firstname, face_id))
+        logger.info("Assigned name %s to face id %s" % (firstname, fsdk_id))
 
-    def forget_name(self, name):
-        self._perception_forget_publisher.publish(Forget(name))
-        logger.info("Forgot name %s" % name)
+    def forget_name(self, uid):
+        self._perception_forget_publisher.publish(Forget(uid))
+        logger.info("Forgot name uid %s" % uid)
 
     def sentiment_active(self, active):
         self._sentiment_active = active
@@ -222,13 +222,17 @@ class Chatbot():
                 self.faces[self.main_face.fsdk_id] = self.main_face
                 for face in self.faces.values():
                     if face.fsdk_id == self.main_face.fsdk_id and face.uid:
-                        self.client.set_context('fullname={} {}'.format(face.first_name, face.last_name))
+                        fullname = '{} {}'.format(face.first_name, face.last_name)
+                        self.client.set_context('fullname={}'.format(fullname))
+                        logger.info("Set context fullname %s" % fullname)
                         if face.formal_name:
                             self.client.set_context('firstname={}'.format(face.formal_name))
+                            logger.info("Set context fistname %s" % face.first_name)
                         else:
                             self.client.set_context('firstname={}'.format(face.first_name))
+                            logger.info("Set context fistname %s" % face.formal_name)
                         self.client.set_context('lastname={}'.format(face.last_name))
-                        logger.info("Set know name %s" % face.formal_name)
+                        logger.info("Set context lastname %s" % face.last_name)
             else:
                 if self.current_user:
                     self.client.set_user(self.current_user)
@@ -500,10 +504,10 @@ class Chatbot():
             if not uid:
                 self.assign_name(face_id, context_firstname, context_lastname)
             elif uid and firstname != context_firstname:
-                self.forget_name(uid)
-                self.assign_name(face_id, context_firstname, context_lastname)
                 logger.warn("Update the name of face id %s from %s to %s" % (
                     face_id, firstname, context_firstname))
+                self.forget_name(uid)
+                self.assign_name(face_id, context_firstname, context_lastname)
             else:
                 logger.warn("Failed to update name of face id %s from %s to %s" % (
                     face_id, firstname, context_firstname))

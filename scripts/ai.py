@@ -173,8 +173,9 @@ class Chatbot():
         if count % 30 == 0:
             self.perception_users = {}
             for face in self.face_cache:
-                self.perception_users[face.id] = face
+                self.perception_users[face.fsdk_id] = face
             faces = self.perception_users.values()
+
             self.face_cache = []
             if faces:
                 faces = sorted(faces, key=lambda face: face.position.x*face.position.x+face.position.y*face.position.y+face.position.z*face.position.z)
@@ -182,34 +183,29 @@ class Chatbot():
                 for face in faces:
                     if face.is_speaking:
                         active_face = face
-                        logger.info("%s is speaking" % face.id)
+                        logger.info("%s is speaking" % face.fsdk_id)
                 if not active_face:
                     active_face = faces[0] # the closest face
                 if self.main_face is None:
                     self.main_face = active_face
-                    logger.warn("Assigned main face ID %s" % self.main_face.id)
-                elif self.main_face.id != active_face.id:
-                    logger.warn("Main face ID has been changed from %s to %s" % (self.main_face.id, active_face.id))
+                    logger.warn("Assigned main face ID %s" % self.main_face.fsdk_id)
+                elif self.main_face.fsdk_id != active_face.fsdk_id:
+                    logger.warn("Main face ID has been changed from %s to %s" % (self.main_face.fsdk_id, active_face.fsdk_id))
                     self.main_face = active_face
-                target = Target()
-                target.x = self.main_face.position.x
-                target.y = self.main_face.position.y
-                target.z = self.main_face.position.z
-                self._look_at_publisher.publish(target)
-                logger.debug("Look at %s %s position (%s %s %s)" % (
-                    self.main_face.id, self.main_face.name, target.x, target.y, target.z))
             else:
                 if self.main_face:
-                    logger.warn("Removed main face ID %s" % self.main_face.id)
+                    logger.warn("Removed main face ID %s" % self.main_face.fsdk_id)
                     self.main_face = None
 
-    def assign_name(self, face_id, name):
+    def assign_name(self, face_id, firstname, lastname=None):
         assign = Assign()
         assign.id = face_id
-        assign.name = name
+        assign.first_name = firstname
+        assign.last_name = lastname
+        assign.formal_name = firstname
         self._perception_assign_publisher.publish(assign)
         time.sleep(1)
-        logger.info("Assigned name %s to face id %s" % (name, face_id))
+        logger.info("Assigned name %s to face id %s" % (firstname, face_id))
 
     def forget_name(self, name):
         self._perception_forget_publisher.publish(Forget(name))
@@ -222,16 +218,17 @@ class Chatbot():
         if chatmessages and len(chatmessages) > 0:
             self.client.lang = chatmessages[0].lang
             if self.main_face: # visual perception
-                self.client.set_user(self.main_face.id)
-                self.faces[self.main_face.id] = self.main_face
+                self.client.set_user(self.main_face.fsdk_id)
+                self.faces[self.main_face.fsdk_id] = self.main_face
                 for face in self.faces.values():
-                    if face.id != self.main_face.id and face.name:
-                        self.client.set_context('known_name={}'.format(face.name))
-                        logger.info("Set know name %s" % face.name)
-                name = self.main_face.name
-                if name:
-                    self.client.set_context('name={}'.format(name))
-                    logger.info("Set context name %s" % name)
+                    if face.fsdk_id == self.main_face.fsdk_id and face.uid:
+                        self.client.set_context('fullname={} {}'.format(face.first_name, face.last_name))
+                        if face.formal_name:
+                            self.client.set_context('firstname={}'.format(face.formal_name))
+                        else:
+                            self.client.set_context('firstname={}'.format(face.first_name))
+                        self.client.set_context('lastname={}'.format(face.last_name))
+                        logger.info("Set know name %s" % face.formal_name)
             else:
                 if self.current_user:
                     self.client.set_user(self.current_user)
@@ -490,26 +487,29 @@ class Chatbot():
         logger.warn("Get context %s" % context)
         context['sid'] = self.client.session
         for k, v in context.iteritems():
-            if k == 'name':
-                face_id = self.client.user
-                if face_id in self.perception_users:
-                    name = self.perception_users[face_id].name
-                    if not name:
-                        self.assign_name(face_id, v)
-                    elif name != v:
-                        self.forget_name(name)
-                        self.assign_name(face_id, v)
-                        logger.warn("Update the name of face id %s from %s to %s" % (
-                            face_id, name, v))
-                    else:
-                        logger.warn("Nothing changed. Face id %s, name %s, context name %s" % (
-                            face_id, name, v))
-                else:
-                    logger.warn("Face %s is out of scene" % face_id)
-                    logger.warn("Perception face %s" % str(self.perception_users.keys()))
-                break
             rospy.set_param('{}/context/{}'.format(self.node_name, k), v)
             logger.info("Set param {}={}".format(k, v))
+
+        # Assign known name to the percepted faces
+        face_id = self.client.user
+        if face_id in self.perception_users:
+            uid = self.perception_users[face_id].uid
+            context_firstname = context.get('firstname')
+            context_lastname = context.get('lastname')
+            firstname = self.perception_users[face_id].first_name
+            if not uid:
+                self.assign_name(face_id, context_firstname, context_lastname)
+            elif uid and firstname != context_firstname:
+                self.forget_name(uid)
+                self.assign_name(face_id, context_firstname, context_lastname)
+                logger.warn("Update the name of face id %s from %s to %s" % (
+                    face_id, firstname, context_firstname))
+            else:
+                logger.warn("Failed to update name of face id %s from %s to %s" % (
+                    face_id, firstname, context_firstname))
+        else:
+            logger.warn("Face %s is out of scene" % face_id)
+            logger.warn("Perception face %s" % str(self.perception_users.keys()))
 
     # Just repeat the chat message, as a plain string.
     def _echo_callback(self, chat_message):

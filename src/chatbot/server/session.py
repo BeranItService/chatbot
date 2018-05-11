@@ -85,7 +85,8 @@ class Session(object):
             self.last_active_time = self.cache.last_time
             self.active = True
             if mongodb.client is not None:
-                chatlog = {'Datetime': time.timestamp(), 'Question': question, "Answer": answer}
+                #chatlog = {'Datetime': time.timestamp(), 'Question': question, "Answer": answer}
+                chatlog = {'Datetime': time, 'Question': question, "Answer": answer}
                 chatlog.update(kwargs)
                 try:
                     mongocollection = mongodb.client[mongodb.dbname][ROBOT_NAME]['chatbot']['chatlogs']

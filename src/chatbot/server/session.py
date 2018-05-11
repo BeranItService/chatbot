@@ -79,12 +79,13 @@ class Session(object):
 
     def add(self, question, answer, **kwargs):
         if not self.closed:
-            self.cache.add(question, answer, **kwargs)
+            time = dt.datetime.utcnow()
+            self.cache.add(question, answer, time, **kwargs)
             self.dump()
             self.last_active_time = self.cache.last_time
             self.active = True
             if mongodb.client is not None:
-                chatlog = {'Question': question, "Answer": answer}
+                chatlog = {'Datetime': time.timestamp(), 'Question': question, "Answer": answer}
                 chatlog.update(kwargs)
                 try:
                     mongocollection = mongodb.client[mongodb.dbname][ROBOT_NAME]['chatbot']['chatlogs']

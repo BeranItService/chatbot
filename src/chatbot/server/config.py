@@ -5,7 +5,7 @@ DEFAULT_CHARACTER_PATH = os.path.join(
 CHARACTER_PATH = os.environ.get('HR_CHARACTER_PATH', DEFAULT_CHARACTER_PATH)
 
 RESET_SESSION_BY_HELLO = False
-SESSION_REMOVE_TIMEOUT = 600  # Timeout seconds for a session to be removed
+SESSION_REMOVE_TIMEOUT = 3600 # Timeout seconds for a session to be removed
 
 CHATBOT_LOG_DIR = os.environ.get('CHATBOT_LOG_DIR') or os.path.expanduser('~/.hr/chatbot')
 SERVER_LOG_DIR = os.environ.get('SERVER_LOG_DIR') or os.path.expanduser('~/.hr/log/chatbot')

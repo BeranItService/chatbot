@@ -22,10 +22,25 @@ except ImportError as ex:
 
 ROBOT_NAME = os.environ.get('NAME', 'default')
 
-class SessionData(object):
+class SessionContext(dict):
 
     def __init__(self):
         self.context = defaultdict(dict)
+
+    def __setitem__(self, key, item):
+        self.__dict__[key] = item
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+    def __len__(self):
+        return len(self.__dict__)
+
+    def __delitem__(self, key):
+        del self.__dict__[key]
+
+    def __repr__(self):
+        return repr(self.__dict__)
 
     def set_context(self, cid, context):
         self.context[cid].update(context)
@@ -40,7 +55,7 @@ class Session(object):
 
     def __init__(self, sid):
         self.sid = sid
-        self.sdata = SessionData()
+        self.session_context = SessionContext()
         self.cache = ResponseCache()
         self.created = dt.datetime.utcnow()
         self.characters = []
@@ -64,12 +79,14 @@ class Session(object):
 
     def add(self, question, answer, **kwargs):
         if not self.closed:
-            self.cache.add(question, answer, **kwargs)
+            time = dt.datetime.utcnow()
+            self.cache.add(question, answer, time, **kwargs)
             self.dump()
             self.last_active_time = self.cache.last_time
             self.active = True
             if mongodb.client is not None:
-                chatlog = {'Question': question, "Answer": answer}
+                #chatlog = {'Datetime': time.timestamp(), 'Question': question, "Answer": answer}
+                chatlog = {'Datetime': time, 'Question': question, "Answer": answer}
                 chatlog.update(kwargs)
                 try:
                     mongocollection = mongodb.client[mongodb.dbname][ROBOT_NAME]['chatbot']['chatlogs']
@@ -129,9 +146,6 @@ class Session(object):
         else:
             self.dump_file = self.fname
         return self.test or self.cache.dump(self.dump_file)
-
-    def get_session_data(self):
-        return self.sdata
 
     def since_idle(self, since):
         if self.last_active_time is not None:
@@ -197,11 +211,11 @@ class SessionManager(object):
         if sid is not None:
             return self._sessions.get(sid, None)
 
-    def get_sid(self, user, key):
-        if user in self._users:
-            sessions = self._users.get(user)
+    def get_sid(self, client_id, user):
+        if client_id in self._users:
+            sessions = self._users.get(client_id)
             if sessions:
-                sid = sessions.get(key)
+                sid = sessions.get(user)
                 session = self._sessions.get(sid)
                 if session:
                     return sid
@@ -210,29 +224,32 @@ class SessionManager(object):
         return str(uuid.uuid1())
 
     @_threadsafe
-    def add_session(self, user, key, sid):
+    def add_session(self, client_id, user, sid):
         if sid in self._sessions:
             return False
         if sid is None:
             return False
-        self._sessions[sid] = Session(sid)
-        self._users[user][key] = sid
+        session = Session(sid)
+        session.session_context.user = user
+        session.session_context.client_id = client_id
+        self._sessions[sid] = session
+        self._users[client_id][user] = sid
         return True
 
-    def start_session(self, user, key, test=False, refresh=False):
+    def start_session(self, client_id, user, test=False, refresh=False):
         """
-        user: username
-        key: a string to identify session in user scope
+        client_id: client id
+        user: user to identify session in user scope
         test: if it's a session for test
         refresh: if true, it will generate new session id
         """
-        _sid = self.get_sid(user, key)
+        _sid = self.get_sid(client_id, user)
         if _sid and refresh:
             self.remove_session(_sid)
             _sid = None
         if not _sid:
             _sid = self.gen_sid()
-            self.add_session(user, key, _sid)
+            self.add_session(client_id, user, _sid)
         session = self.get_session(_sid)
         assert(session is not None)
         session.set_test(test)
@@ -253,7 +270,7 @@ class SessionManager(object):
             time.sleep(0.1)
 
     def list_sessions(self):
-        return self._sessions.keys()
+        return self._sessions.values()
 
 
 class ChatSessionManager(SessionManager):

@@ -3,15 +3,12 @@
 import rospy
 import os
 import logging
-import requests
-import json
 import time
 import datetime as dt
 import threading
 import re
 import uuid
 import pandas as pd
-import random
 import traceback
 
 from jinja2 import Template
@@ -25,13 +22,15 @@ from dynamic_reconfigure.server import Server
 import dynamic_reconfigure.client
 from chatbot.cfg import ChatbotConfig
 from chatbot.client import Client
-from blender_api_msgs.msg import SetGesture
+from blender_api_msgs.msg import SetGesture, Target
+from r2_perception.msg import Forget, ForgetAll, Assign, State
 
 logger = logging.getLogger('hr.chatbot.ai')
 HR_CHATBOT_AUTHKEY = os.environ.get('HR_CHATBOT_AUTHKEY', 'AAAAB3NzaC')
 HR_CHATBOT_REQUEST_DIR = os.environ.get('HR_CHATBOT_REQUEST_DIR') or \
     os.path.expanduser('~/.hr/chatbot/requests')
 ROBOT_NAME = os.environ.get('NAME', 'default')
+count = 0
 
 def update_parameter(node, param, *args, **kwargs):
     client = dynamic_reconfigure.client.Client(node, *args, **kwargs)
@@ -62,8 +61,8 @@ class Chatbot():
     def __init__(self):
         self.botname = rospy.get_param('botname', 'sophia')
         self.client = Client(
-            HR_CHATBOT_AUTHKEY, response_listener=self,
-            botname=self.botname, stdout=Console())
+            HR_CHATBOT_AUTHKEY, self.botname, response_listener=self,
+            stdout=Console())
         self.client.chatbot_url = rospy.get_param(
             'chatbot_url', 'http://localhost:8001')
         # chatbot now saves a bit of simple state to handle sentiment analysis
@@ -139,6 +138,24 @@ class Chatbot():
 
         self._gesture_publisher = rospy.Publisher(
             '/blender_api/set_gesture', SetGesture, queue_size=1)
+        self._look_at_publisher = rospy.Publisher(
+            '/blender_api/set_face_target', Target, queue_size=1)
+
+        # r2_perception
+        self._perception_assign_publisher = rospy.Publisher(
+            'perception/api/assign', Assign, queue_size=1)
+        self._perception_forget_publisher = rospy.Publisher(
+            'perception/api/forget', Forget, queue_size=1)
+        self._perception_forget_all_publisher = rospy.Publisher(
+            'perception/api/forget_all', ForgetAll, queue_size=1)
+        self._perception_state_subscriber = rospy.Subscriber(
+            'perception/state', State, self._perception_state_callback)
+
+        self.perception_users = {}
+        self.face_cache = []
+        self.main_face = None
+        self.faces = {} # faceid(session) -> face
+        self.current_user = None
 
     def _threadsafe(f):
         def wrap(self, *args, **kwargs):
@@ -149,29 +166,93 @@ class Chatbot():
                 self._locker.unlock()
         return wrap
 
+    def _perception_state_callback(self, msg):
+        global count
+        count += 1
+        self.face_cache.extend(msg.faces)
+        if count % 30 == 0:
+            self.perception_users = {}
+            for face in self.face_cache:
+                self.perception_users[face.fsdk_id] = face
+            faces = self.perception_users.values()
+
+            self.face_cache = []
+            if faces:
+                faces = sorted(faces, key=lambda face: face.position.x*face.position.x+face.position.y*face.position.y+face.position.z*face.position.z)
+                active_face = None
+                for face in faces:
+                    if face.is_speaking:
+                        active_face = face
+                        logger.info("%s is speaking" % face.fsdk_id)
+                if not active_face:
+                    active_face = faces[0] # the closest face
+                if self.main_face is None:
+                    self.main_face = active_face
+                    logger.warn("Assigned main face ID %s, first name %s" % (self.main_face.fsdk_id, self.main_face.first_name))
+                elif self.main_face.fsdk_id != active_face.fsdk_id:
+                    logger.warn("Main face ID has been changed from %s to %s" % (self.main_face.fsdk_id, active_face.fsdk_id))
+                    self.main_face = active_face
+            else:
+                if self.main_face:
+                    logger.warn("Removed main face ID %s, first name %s" % (self.main_face.fsdk_id, self.main_face.first_name))
+                    self.main_face = None
+
+    def assign_name(self, fsdk_id, firstname, lastname=None):
+        assign = Assign()
+        assign.fsdk_id = fsdk_id
+        assign.first_name = str(firstname)
+        assign.last_name = str(lastname)
+        assign.formal_name = str(firstname)
+        logger.info("Assigning name %s to face id %s" % (firstname, fsdk_id))
+        self._perception_assign_publisher.publish(assign)
+        logger.info("Assigned name %s to face id %s" % (firstname, fsdk_id))
+
+    def forget_name(self, uid):
+        self._perception_forget_publisher.publish(Forget(uid))
+        logger.info("Forgot name uid %s" % uid)
+
     def sentiment_active(self, active):
         self._sentiment_active = active
 
     def ask(self, chatmessages, query=False):
         if chatmessages and len(chatmessages) > 0:
             self.client.lang = chatmessages[0].lang
+            if self.main_face: # visual perception
+                self.client.set_user(self.main_face.fsdk_id)
+                self.faces[self.main_face.fsdk_id] = self.main_face
+                for face in self.faces.values():
+                    if face.fsdk_id == self.main_face.fsdk_id and face.uid:
+                        fullname = '{} {}'.format(face.first_name, face.last_name)
+                        self.client.set_context('fullname={}'.format(fullname))
+                        logger.info("Set context fullname %s" % fullname)
+                        if face.formal_name:
+                            self.client.set_context('firstname={}'.format(face.formal_name))
+                            logger.info("Set context fistname %s" % face.first_name)
+                        else:
+                            self.client.set_context('firstname={}'.format(face.first_name))
+                            logger.info("Set context fistname %s" % face.formal_name)
+                        self.client.set_context('lastname={}'.format(face.last_name))
+                        logger.info("Set context lastname %s" % face.last_name)
+            else:
+                if self.current_user:
+                    self.client.set_user(self.current_user)
+                    if '_' in self.current_user:
+                        first, last = self.current_user.split('_', 1)
+                        self.client.set_context('firstname={},lastname={},fullname={}'.format(first, last, self.current_user))
+                        logger.info("Set context first name %s" % first)
+                        logger.info("Set context last name %s" % last)
+                    else:
+                        self.client.set_context('name={}'.format(self.current_user))
+                        logger.info("Set context name %s" % self.current_user)
         else:
             logger.error("No language is specified")
             return
 
-        persons = rospy.get_param('/face_recognizer/current_persons', '')
-        if persons:
-            person = persons.split('|')[0]
-            person = person.title()
-            self.client.set_context('queryname={}'.format(person))
-            logger.info("Set queryname to {}".format(person))
-        else:
-            self.client.remove_context('queryname')
-            logger.info("Remove queryname")
-
         request_id = str(uuid.uuid1())
         question = ' '.join([msg.utterance for msg in chatmessages])
         logger.info("Asking {}".format(question))
+        #if self.main_face:
+        #    self.client.ask('[start]', query, request_id=request_id)
         self.client.ask(question, query, request_id=request_id)
         logger.info("Sent request {}".format(request_id))
         self.write_request(request_id, chatmessages)
@@ -407,10 +488,32 @@ class Chatbot():
         if rospy.has_param('{}/context'.format(self.node_name)):
             rospy.delete_param('{}/context'.format(self.node_name))
         context = self.client.get_context()
+        logger.warn("Get context %s" % context)
         context['sid'] = self.client.session
         for k, v in context.iteritems():
             rospy.set_param('{}/context/{}'.format(self.node_name, k), v)
             logger.info("Set param {}={}".format(k, v))
+
+        # Assign known name to the percepted faces
+        face_id = self.client.user
+        if face_id in self.perception_users:
+            uid = self.perception_users[face_id].uid
+            context_firstname = context.get('firstname')
+            context_lastname = context.get('lastname')
+            firstname = self.perception_users[face_id].first_name
+            if not uid:
+                self.assign_name(face_id, context_firstname, context_lastname)
+            elif uid and firstname != context_firstname:
+                logger.warn("Update the name of face id %s from %s to %s" % (
+                    face_id, firstname, context_firstname))
+                self.forget_name(uid)
+                self.assign_name(face_id, context_firstname, context_lastname)
+            else:
+                logger.warn("Failed to update name of face id %s from %s to %s" % (
+                    face_id, firstname, context_firstname))
+        else:
+            logger.warn("Face %s is out of scene" % face_id)
+            logger.warn("Perception face %s" % str(self.perception_users.keys()))
 
     # Just repeat the chat message, as a plain string.
     def _echo_callback(self, chat_message):
@@ -437,6 +540,14 @@ class Chatbot():
         self.client.set_marker(marker)
         self.mute = config.mute
         self.insert_behavior = config.insert_behavior
+        if config.preset_user and config.preset_user != self.current_user:
+            self.current_user = config.preset_user
+            config.user = ''
+            logger.info("Set preset user %s" % self.current_user)
+        if config.user and config.user != self.current_user:
+            self.current_user = config.user
+            config.preset_user = ''
+            logger.info("Set current user %s" % self.current_user)
 
         if config.reset_session:
             self.client.reset_session()

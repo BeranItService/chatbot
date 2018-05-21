@@ -1,36 +1,37 @@
 #!/usr/bin/env python
 
-import rospy
-import os
-import logging
-import time
 import datetime as dt
-import threading
+import logging
+import os
 import re
-import uuid
-import pandas as pd
+import threading
+import time
 import traceback
+import uuid
 
-from jinja2 import Template
-from chatbot.polarity import Polarity
-from chatbot.db import get_mongodb, MongoDB
-from hr_msgs.msg import ChatMessage, TTS
-from std_msgs.msg import String
-from audio_stream.msg import audiodata
 import dynamic_reconfigure
-from dynamic_reconfigure.server import Server
 import dynamic_reconfigure.client
-from chatbot.cfg import ChatbotConfig
-from chatbot.client import Client
+import pandas as pd
+import rospy
+from audio_stream.msg import audiodata
 from blender_api_msgs.msg import SetGesture, Target
+from chatbot.cfg import ChatbotConfig
+from dynamic_reconfigure.server import Server
+from hr_msgs.msg import ChatMessage, TTS
+from jinja2 import Template
 from r2_perception.msg import Forget, ForgetAll, Assign, State
+from std_msgs.msg import String
+
+from chatbot.client import Client
+from chatbot.db import get_mongodb, MongoDB
+from chatbot.polarity import Polarity
 
 logger = logging.getLogger('hr.chatbot.ai')
 HR_CHATBOT_AUTHKEY = os.environ.get('HR_CHATBOT_AUTHKEY', 'AAAAB3NzaC')
-HR_CHATBOT_REQUEST_DIR = os.environ.get('HR_CHATBOT_REQUEST_DIR') or \
-    os.path.expanduser('~/.hr/chatbot/requests')
+HR_CHATBOT_REQUEST_DIR = os.environ.get('HR_CHATBOT_REQUEST_DIR') or os.path.expanduser('~/.hr/chatbot/requests')
 ROBOT_NAME = os.environ.get('NAME', 'default')
 count = 0
+
 
 def update_parameter(node, param, *args, **kwargs):
     client = dynamic_reconfigure.client.Client(node, *args, **kwargs)
@@ -41,9 +42,11 @@ def update_parameter(node, param, *args, **kwargs):
         return False
     return True
 
+
 class Console(object):
     def write(self, msg):
         logger.info("Console: {}".format(msg.strip()))
+
 
 class Locker(object):
 
@@ -56,15 +59,13 @@ class Locker(object):
     def unlock(self):
         self._lock.release()
 
+
 class Chatbot():
 
     def __init__(self):
         self.botname = rospy.get_param('botname', 'sophia')
-        self.client = Client(
-            HR_CHATBOT_AUTHKEY, self.botname, response_listener=self,
-            stdout=Console())
-        self.client.chatbot_url = rospy.get_param(
-            'chatbot_url', 'http://localhost:8001')
+        self.client = Client(HR_CHATBOT_AUTHKEY, self.botname, response_listener=self, stdout=Console())
+        self.client.chatbot_url = rospy.get_param('chatbot_url', 'http://localhost:8001')
         # chatbot now saves a bit of simple state to handle sentiment analysis
         # after formulating a response it saves it in a buffer if S.A. active
         # It has a simple state transition - initialized in wait_client
@@ -88,12 +89,10 @@ class Chatbot():
             self.mongodb = MongoDB()
 
         self.node_name = rospy.get_name()
-        self.output_dir = os.path.join(HR_CHATBOT_REQUEST_DIR,
-            dt.datetime.strftime(dt.datetime.utcnow(), '%Y%m%d'))
+        self.output_dir = os.path.join(HR_CHATBOT_REQUEST_DIR, dt.datetime.strftime(dt.datetime.utcnow(), '%Y%m%d'))
         if not os.path.isdir(self.output_dir):
             os.makedirs(self.output_dir)
-        self.requests_fname = os.path.join(
-            self.output_dir, '{}.csv'.format(str(uuid.uuid1())))
+        self.requests_fname = os.path.join(self.output_dir, '{}.csv'.format(str(uuid.uuid1())))
 
         self.input_stack = []
         self.timer = None
@@ -106,55 +105,44 @@ class Chatbot():
         logger.info("Set run_id %s", self.run_id)
 
         rospy.Subscriber('chatbot_speech', ChatMessage, self._request_callback)
-        rospy.Subscriber('speech_events', String, self._speech_event_callback) # robot starts to speak
-        rospy.Subscriber('chat_events', String, self._chat_event_callback) # user starts to speak
+        rospy.Subscriber('speech_events', String, self._speech_event_callback)  # robot starts to speak
+        rospy.Subscriber('chat_events', String, self._chat_event_callback)  # user starts to speak
 
         rospy.Subscriber('audio_sensors', audiodata, self._audio_sensors_callback)
-        self.tts_ctrl_pub = rospy.Publisher(
-            'tts_control', String, queue_size=1)
+        self.tts_ctrl_pub = rospy.Publisher('tts_control', String, queue_size=1)
 
-        self._response_publisher = rospy.Publisher(
-            'chatbot_responses', TTS, queue_size=1)
+        self._response_publisher = rospy.Publisher('chatbot_responses', TTS, queue_size=1)
+        self._tts_pub = rospy.Publisher('tts', TTS, queue_size=1)
 
         # send communication non-verbal blink message to behavior
-        self._blink_publisher = rospy.Publisher(
-            'chatbot_blink', String, queue_size=1)
+        self._blink_publisher = rospy.Publisher('chatbot_blink', String, queue_size=1)
 
         # Perceived emotional content; and emotion to express
         # Perceived: based on what chatbot heard, this is how robot should
         # feel.  Expressed: the emotional content that the chatbot should
         # put into what it says.
-        self._affect_publisher = rospy.Publisher(
-            'chatbot_affect_perceive', String, queue_size=1)
+        self._affect_publisher = rospy.Publisher('chatbot_affect_perceive', String, queue_size=1)
 
         # Echo chat messages as plain strings.
-        self._echo_publisher = rospy.Publisher(
-            'perceived_text', String, queue_size=1)
+        self._echo_publisher = rospy.Publisher('perceived_text', String, queue_size=1)
         rospy.Subscriber('chatbot_speech', ChatMessage, self._echo_callback)
         rospy.set_param('node_status/chatbot', 'running')
 
-        self.btree_publisher = rospy.Publisher(
-            '/behavior_switch', String, queue_size=1)
+        self.btree_publisher = rospy.Publisher('/behavior_switch', String, queue_size=1)
 
-        self._gesture_publisher = rospy.Publisher(
-            '/blender_api/set_gesture', SetGesture, queue_size=1)
-        self._look_at_publisher = rospy.Publisher(
-            '/blender_api/set_face_target', Target, queue_size=1)
+        self._gesture_publisher = rospy.Publisher('/blender_api/set_gesture', SetGesture, queue_size=1)
+        self._look_at_publisher = rospy.Publisher('/blender_api/set_face_target', Target, queue_size=1)
 
         # r2_perception
-        self._perception_assign_publisher = rospy.Publisher(
-            'perception/api/assign', Assign, queue_size=1)
-        self._perception_forget_publisher = rospy.Publisher(
-            'perception/api/forget', Forget, queue_size=1)
-        self._perception_forget_all_publisher = rospy.Publisher(
-            'perception/api/forget_all', ForgetAll, queue_size=1)
-        self._perception_state_subscriber = rospy.Subscriber(
-            'perception/state', State, self._perception_state_callback)
+        self._perception_assign_publisher = rospy.Publisher('perception/api/assign', Assign, queue_size=1)
+        self._perception_forget_publisher = rospy.Publisher('perception/api/forget', Forget, queue_size=1)
+        self._perception_forget_all_publisher = rospy.Publisher('perception/api/forget_all', ForgetAll, queue_size=1)
+        self._perception_state_subscriber = rospy.Subscriber('perception/state', State, self._perception_state_callback)
 
         self.perception_users = {}
         self.face_cache = []
         self.main_face = None
-        self.faces = {} # faceid(session) -> face
+        self.faces = {}  # faceid(session) -> face
         self.current_user = None
 
     def _threadsafe(f):
@@ -164,6 +152,7 @@ class Chatbot():
                 return f(self, *args, **kwargs)
             finally:
                 self._locker.unlock()
+
         return wrap
 
     def _perception_state_callback(self, msg):
@@ -178,23 +167,27 @@ class Chatbot():
 
             self.face_cache = []
             if faces:
-                faces = sorted(faces, key=lambda face: face.position.x*face.position.x+face.position.y*face.position.y+face.position.z*face.position.z)
+                faces = sorted(faces, key=lambda
+                    face: face.position.x * face.position.x + face.position.y * face.position.y + face.position.z * face.position.z)
                 active_face = None
                 for face in faces:
                     if face.is_speaking:
                         active_face = face
                         logger.info("%s is speaking" % face.fsdk_id)
                 if not active_face:
-                    active_face = faces[0] # the closest face
+                    active_face = faces[0]  # the closest face
                 if self.main_face is None:
                     self.main_face = active_face
-                    logger.warn("Assigned main face ID %s, first name %s" % (self.main_face.fsdk_id, self.main_face.first_name))
+                    logger.warn(
+                        "Assigned main face ID %s, first name %s" % (self.main_face.fsdk_id, self.main_face.first_name))
                 elif self.main_face.fsdk_id != active_face.fsdk_id:
-                    logger.warn("Main face ID has been changed from %s to %s" % (self.main_face.fsdk_id, active_face.fsdk_id))
+                    logger.warn(
+                        "Main face ID has been changed from %s to %s" % (self.main_face.fsdk_id, active_face.fsdk_id))
                     self.main_face = active_face
             else:
                 if self.main_face:
-                    logger.warn("Removed main face ID %s, first name %s" % (self.main_face.fsdk_id, self.main_face.first_name))
+                    logger.warn(
+                        "Removed main face ID %s, first name %s" % (self.main_face.fsdk_id, self.main_face.first_name))
                     self.main_face = None
 
     def assign_name(self, fsdk_id, firstname, lastname=None):
@@ -217,7 +210,7 @@ class Chatbot():
     def ask(self, chatmessages, query=False):
         if chatmessages and len(chatmessages) > 0:
             self.client.lang = chatmessages[0].lang
-            if self.main_face: # visual perception
+            if self.main_face:  # visual perception
                 self.client.set_user(self.main_face.fsdk_id)
                 self.faces[self.main_face.fsdk_id] = self.main_face
                 for face in self.faces.values():
@@ -238,7 +231,8 @@ class Chatbot():
                     self.client.set_user(self.current_user)
                     if '_' in self.current_user:
                         first, last = self.current_user.split('_', 1)
-                        self.client.set_context('firstname={},lastname={},fullname={}'.format(first, last, self.current_user))
+                        self.client.set_context(
+                            'firstname={},lastname={},fullname={}'.format(first, last, self.current_user))
                         logger.info("Set context first name %s" % first)
                         logger.info("Set context last name %s" % last)
                     else:
@@ -251,7 +245,7 @@ class Chatbot():
         request_id = str(uuid.uuid1())
         question = ' '.join([msg.utterance for msg in chatmessages])
         logger.info("Asking {}".format(question))
-        #if self.main_face:
+        # if self.main_face:
         #    self.client.ask('[start]', query, request_id=request_id)
         self.client.ask(question, query, request_id=request_id)
         logger.info("Sent request {}".format(request_id))
@@ -285,9 +279,10 @@ class Chatbot():
             self.tts_ctrl_pub.publish("shutup")
             rospy.sleep(0.5)
             self._affect_publisher.publish(String('sad'))
+            msg = TTS(text='Okay', lang=chat_message.lang)
             if not self.mute:
-                self._response_publisher.publish(
-                    TTS(text='Okay', lang=chat_message.lang))
+                self._tts_pub.publish(msg)
+            self._response_publisher.publish(msg)
             return
 
         # Handle chatbot command
@@ -345,7 +340,7 @@ class Chatbot():
         for i, msg in enumerate(chatmessages):
             audio = os.path.basename(msg.audio_path)
             request = {
-                'Datetime':  dt.datetime.utcnow(),
+                'Datetime': dt.datetime.utcnow(),
                 'RequestID': request_id,
                 'Index': i,
                 'Source': msg.source,
@@ -370,8 +365,7 @@ class Chatbot():
             with open(self.requests_fname, 'w') as f:
                 f.write(','.join(columns))
                 f.write('\n')
-        df.to_csv(self.requests_fname, mode='a', index=False, header=False,
-            columns=columns)
+        df.to_csv(self.requests_fname, mode='a', index=False, header=False, columns=columns)
         logger.info("Write request to {}".format(self.requests_fname))
 
     def handle_control(self, response):
@@ -420,7 +414,7 @@ class Chatbot():
                 self.handle_control(orig_text)
             except Exception as ex:
                 logger.error(ex)
-        #elif self.recover:
+        # elif self.recover:
         #    param = {
         #        'delay_response': False
         #    }
@@ -433,11 +427,11 @@ class Chatbot():
         text = text.replace('_', ' ')
         if self.insert_behavior:
             # no
-            pattern=r"(\bnot\s|\bno\s|\bdon't\s|\bwon't\s|\bdidn't\s)"
+            pattern = r"(\bnot\s|\bno\s|\bdon't\s|\bwon't\s|\bdidn't\s)"
             text = re.sub(pattern, '\g<1>|shake3| ', text, flags=re.IGNORECASE)
 
             # yes
-            pattern=r'(\byes\b|\byeah\b|\byep\b)'
+            pattern = r'(\byes\b|\byeah\b|\byep\b)'
             text = re.sub(pattern, '\g<1>|nod|', text, flags=re.IGNORECASE)
 
             # question
@@ -481,9 +475,11 @@ class Chatbot():
                     # Currently response is independant of message received so no need to wait
                     # Leave it for Opencog to handle responses later on.
 
+        msg = TTS(text=text, lang=lang)
         if not self.mute:
             self._blink_publisher.publish('chat_saying')
-            self._response_publisher.publish(TTS(text=text, lang=lang))
+            self._tts_pub.publish(msg)
+        self._response_publisher.publish(msg)
 
         if rospy.has_param('{}/context'.format(self.node_name)):
             rospy.delete_param('{}/context'.format(self.node_name))
@@ -504,13 +500,11 @@ class Chatbot():
             if not uid:
                 self.assign_name(face_id, context_firstname, context_lastname)
             elif uid and firstname != context_firstname:
-                logger.warn("Update the name of face id %s from %s to %s" % (
-                    face_id, firstname, context_firstname))
+                logger.warn("Update the name of face id %s from %s to %s" % (face_id, firstname, context_firstname))
                 self.forget_name(uid)
                 self.assign_name(face_id, context_firstname, context_lastname)
             else:
-                logger.warn("Failed to update name of face id %s from %s to %s" % (
-                    face_id, firstname, context_firstname))
+                logger.warn("Failed to update name of face id %s from %s to %s" % (face_id, firstname, context_firstname))
         else:
             logger.warn("Face %s is out of scene" % face_id)
             logger.warn("Perception face %s" % str(self.perception_users.keys()))
@@ -551,13 +545,15 @@ class Chatbot():
 
         if config.reset_session:
             self.client.reset_session()
-            config.reset_session = Fales
+            config.reset_session = False
         return config
+
 
 if __name__ == '__main__':
     rospy.init_node('chatbot')
     bot = Chatbot()
     from rospkg import RosPack
+
     rp = RosPack()
     data_dir = os.path.join(rp.get_path('chatbot'), 'scripts/aiml')
     sent3_file = os.path.join(data_dir, "senticnet3.props.csv")

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def respond_requires_internet(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if check_online():
+        if check_online(timeout=0.5):
             return func(*args, **kwargs)
         else:
             logger.warn("No Internet or unstable Internet")

@@ -81,6 +81,7 @@ class Chatbot():
         self.enable = True
         self.mute = False
         self.insert_behavior = False
+        self.enable_face_recognition = False
         self._locker = Locker()
         try:
             self.mongodb = get_mongodb()
@@ -171,6 +172,7 @@ class Chatbot():
         count += 1
         self.face_cache.extend(msg.faces)
         if count % 30 == 0:
+            count = 0
             self.perception_users = {}
             for face in self.face_cache:
                 self.perception_users[face.fsdk_id] = face
@@ -217,7 +219,7 @@ class Chatbot():
     def ask(self, chatmessages, query=False):
         if chatmessages and len(chatmessages) > 0:
             self.client.lang = chatmessages[0].lang
-            if self.main_face: # visual perception
+            if self.enable_face_recognition and self.main_face: # visual perception
                 self.client.set_user(self.main_face.fsdk_id)
                 self.faces[self.main_face.fsdk_id] = self.main_face
                 for face in self.faces.values():
@@ -494,26 +496,27 @@ class Chatbot():
             rospy.set_param('{}/context/{}'.format(self.node_name, k), v)
             logger.info("Set param {}={}".format(k, v))
 
-        # Assign known name to the percepted faces
-        face_id = self.client.user
-        if face_id in self.perception_users:
-            uid = self.perception_users[face_id].uid
-            context_firstname = context.get('firstname')
-            context_lastname = context.get('lastname')
-            firstname = self.perception_users[face_id].first_name
-            if not uid:
-                self.assign_name(face_id, context_firstname, context_lastname)
-            elif uid and firstname != context_firstname:
-                logger.warn("Update the name of face id %s from %s to %s" % (
-                    face_id, firstname, context_firstname))
-                self.forget_name(uid)
-                self.assign_name(face_id, context_firstname, context_lastname)
+        if self.enable_face_recognition:
+            # Assign known name to the percepted faces
+            face_id = self.client.user
+            if face_id in self.perception_users:
+                uid = self.perception_users[face_id].uid
+                context_firstname = context.get('firstname')
+                context_lastname = context.get('lastname')
+                firstname = self.perception_users[face_id].first_name
+                if not uid:
+                    self.assign_name(face_id, context_firstname, context_lastname)
+                elif uid and firstname != context_firstname:
+                    logger.warn("Update the name of face id %s from %s to %s" % (
+                        face_id, firstname, context_firstname))
+                    self.forget_name(uid)
+                    self.assign_name(face_id, context_firstname, context_lastname)
+                else:
+                    logger.warn("Failed to update name of face id %s from %s to %s" % (
+                        face_id, firstname, context_firstname))
             else:
-                logger.warn("Failed to update name of face id %s from %s to %s" % (
-                    face_id, firstname, context_firstname))
-        else:
-            logger.warn("Face %s is out of scene" % face_id)
-            logger.warn("Perception face %s" % str(self.perception_users.keys()))
+                logger.warn("User %s is out of scene" % face_id)
+                logger.warn("Perception face %s" % str(self.perception_users.keys()))
 
     # Just repeat the chat message, as a plain string.
     def _echo_callback(self, chat_message):
@@ -536,6 +539,11 @@ class Chatbot():
 
         if config.set_context:
             self.client.set_context(config.set_context)
+
+        self.enable_face_recognition = config.enable_face_recognition
+        if not self.enable_face_recognition:
+            self.client.set_user()
+
         marker = '%s:%s' % (config.type_of_marker, config.marker)
         self.client.set_marker(marker)
         self.mute = config.mute

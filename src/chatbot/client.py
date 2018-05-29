@@ -578,11 +578,10 @@ Reset the weight of tiers to their defaults.
     def help_ns(self):
         self.stdout.write('Start new session\n')
 
-    def do_user(self, line):
-        if line:
-            self.user = line
-            self.prompt = '[%s]: ' % self.user
-            self.start_session()
+    def do_user(self, line=None):
+        self.user = line or get_client_id()
+        self.prompt = '[%s]: ' % self.user
+        self.start_session()
 
     set_user = do_user
 

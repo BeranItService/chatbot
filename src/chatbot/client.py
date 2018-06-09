@@ -15,6 +15,11 @@ import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
+try:
+    import readline
+except ImportError:
+    readline = None
+
 logger = logging.getLogger('hr.chatbot.client')
 
 def get_client_id():
@@ -29,6 +34,8 @@ ERRORS = {
 3: 'Invalid Session',
 4: 'Invalid Question'
 }
+HISTFILE = os.path.expanduser('~/.hr/chatbot/client_history')
+HISTFILE_SIZE = 1000
 
 class Client(cmd.Cmd, object):
 
@@ -205,6 +212,18 @@ class Client(cmd.Cmd, object):
         else:
             logger.debug("Timer is None")
 
+    def preloop(self):
+        if readline and os.path.exists(HISTFILE):
+            readline.read_history_file(HISTFILE)
+
+    def postloop(self):
+        if readline:
+            readline.set_history_length(HISTFILE_SIZE)
+            readline.write_history_file(HISTFILE)
+
+    def emptyline(self):
+        pass
+
     def default(self, line):
         try:
             if line:
@@ -301,7 +320,7 @@ For example, port 8001
 
     def do_q(self, line):
         self.stdout.write("Bye\n")
-        sys.exit()
+        return True
 
     def help_q(self):
         self.stdout.write("Quit\n")

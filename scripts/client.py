@@ -24,8 +24,16 @@ if __name__ == '__main__':
     parser.add_argument(
         '-k', '--key', default=HR_CHATBOT_AUTHKEY,
         help='client key')
+    parser.add_argument(
+        '--host', default='localhost',
+        help='server host')
+    parser.add_argument(
+        '-p', '--port', default=8001, type=int,
+        help='server port')
 
     options = parser.parse_args()
 
-    client = Client(options.key, options.botname, username=options.user)
+    client = Client(
+        options.key, options.botname, username=options.user,
+        host=options.host, port=options.port)
     client.cmdloop()

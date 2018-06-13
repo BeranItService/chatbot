@@ -277,10 +277,10 @@ class Chatbot():
     @_threadsafe
     def _request_callback(self, chat_message):
         if not self.enable:
-            logger.info("Chatbot is disabled")
+            logger.warn("Chatbot is disabled")
             return
         if self.speech:
-            logger.info("In speech, ignore the question")
+            logger.warn("In speech, ignore the question")
             return
         if 'shut up' in chat_message.utterance.lower():
             logger.info("Robot's talking wants to be interruptted")

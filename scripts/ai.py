@@ -279,9 +279,6 @@ class Chatbot():
         if not self.enable:
             logger.warn("Chatbot is disabled")
             return
-        if self.speech:
-            logger.warn("In speech, ignore the question")
-            return
         if 'shut up' in chat_message.utterance.lower():
             logger.info("Robot's talking wants to be interruptted")
             self.tts_ctrl_pub.publish("shutup")
@@ -290,6 +287,9 @@ class Chatbot():
             if not self.mute:
                 self._response_publisher.publish(
                     TTS(text='Okay', lang=chat_message.lang))
+            return
+        if self.speech:
+            logger.warn("In speech, ignore the question")
             return
 
         # Handle chatbot command

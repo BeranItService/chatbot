@@ -112,8 +112,8 @@ class HRSlackBot(object):
                 sid = self.session_manager.get_sid(name, self.botname)
                 session = self.session_manager.get_session(sid)
                 if session is not None:
-                    assert hasattr(session.sdata, 'client')
-                    client = session.sdata.client
+                    assert hasattr(session.session_context, 'client')
+                    client = session.session_context.client
                 else:
                     client = Client(HR_CHATBOT_AUTHKEY, username=name,
                         botname=self.botname, host=self.host, port=self.port,
@@ -124,8 +124,8 @@ class HRSlackBot(object):
                     self.session_manager.add_session(name, self.botname, client.session)
                     session = self.session_manager.get_session(client.session)
                     if session is not None:
-                        session.sdata.client = client
-                        session.sdata.channel = channel
+                        session.session_context.client = client
+                        session.session_context.channel = channel
                         self.info(channel, "Session <{url}/v1.1/session_history?session={sid}&Auth={auth}|{sid}>".format(
                             url=CHATBOT_SERVER_URL, sid=session.sid, auth=HR_CHATBOT_AUTHKEY))
                     else:
@@ -179,8 +179,8 @@ class HRSlackBot(object):
                     self.session_manager.add_session(
                         name, self.botname, client.session)
                     session = self.session_manager.get_session(client.session)
-                    session.sdata.client = client
-                    session.sdata.channel = channel
+                    session.session_context.client = client
+                    session.session_context.channel = channel
                     self.info(channel, "Session <{url}/v1.1/session_history?session={sid}&Auth={auth}|{sid}>".format(
                         url=CHATBOT_SERVER_URL, sid=session.sid, auth=HR_CHATBOT_AUTHKEY))
                     logger.info("Session is updated")
@@ -195,7 +195,7 @@ class HRSlackBot(object):
             if session is None:
                 logger.error("No such session {}".format(session))
                 return
-        channel = session.sdata.channel
+        channel = session.session_context.channel
         if response is None or not response.get('text'):
             answer = u"Sorry, I can't answer it right now"
         else:

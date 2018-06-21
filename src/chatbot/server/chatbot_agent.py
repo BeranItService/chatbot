@@ -50,14 +50,14 @@ OPERATOR_MAP = {
 }
 
 RESPONSE_TYPE_WEIGHTS = {
-    'pass': 10,
-    'nogoodmatch': 2,
-    'quibble': 6,
-    'gambit': 6,
+    'pass': 100,
+    'nogoodmatch': 20,
+    'quibble': 20,
+    'gambit': 20,
     'repeat': 0,
-    'pickup': 2,
-    'es': 6,
-    'markov': 3,
+    'pickup': 0,
+    'es': 20,
+    'markov': 5,
 }
 
 def get_character(id, lang=None, ns=None):
@@ -383,7 +383,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
             if good_match:
                 if response.get('exact_match') or response.get('ok_match'):
                     if response.get('gambit'):
-                        if random.random() < 0.8:
+                        if random.random() < 0.5:
                             logger.info("{} has gambit but dismissed".format(character.id))
                             cross_trace.append((character.id, stage, 'Ignore gambit answer. Answer: {}, Trace: {}'.format(answer, trace)))
                             cached_responses['gambit'].append((response, answer, character))
@@ -521,6 +521,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
     if not query and hit_character is not None:
         response['AnsweredBy'] = hit_character.id
         sess.last_used_character = hit_character
+        hit_character.use(sess, response)
 
         if is_question(answer.lower().strip()):
             if hit_character.dynamic_level:

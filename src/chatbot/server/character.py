@@ -52,6 +52,9 @@ class Character(object):
     def respond(self, question, lang, session=None, query=False, request_id=None):
         raise NotImplementedError
 
+    def use(self, session, response, **kwargs):
+        raise NotImplementedError
+
     def refresh(self, session):
         raise NotImplementedError
 
@@ -85,6 +88,9 @@ class DefaultCharacter(Character):
 
     def refresh(self, session):
         session.session_context.reset_context(self.id)
+
+    def use(self, session, response, **kwargs):
+        self.logger.info("Use %s" % self.id)
 
 def replace_aiml_abs_path(trace):
     if isinstance(trace, list):

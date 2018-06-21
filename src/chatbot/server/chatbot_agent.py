@@ -5,6 +5,7 @@ import random
 import os
 import re
 import sys
+import numpy as np
 reload(sys)
 sys.setdefaultencoding('utf-8')
 import atexit
@@ -46,6 +47,17 @@ OPERATOR_MAP = {
     '[mul]': mul,
     '[div]': truediv,
     '[pow]': pow,
+}
+
+RESPONSE_TYPE_WEIGHTS = {
+    'pass': 10,
+    'nogoodmatch': 2,
+    'quibble': 6,
+    'gambit': 6,
+    'repeat': 0,
+    'pickup': 2,
+    'es': 6,
+    'markov': 3,
 }
 
 def get_character(id, lang=None, ns=None):
@@ -370,14 +382,16 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                 return False, None, None
             if good_match:
                 if response.get('exact_match') or response.get('ok_match'):
-                    logger.info("{} has good match".format(character.id))
                     if response.get('gambit'):
-                        if random.random() > 0.5:
+                        if random.random() < 0.8:
+                            logger.info("{} has gambit but dismissed".format(character.id))
                             cross_trace.append((character.id, stage, 'Ignore gambit answer. Answer: {}, Trace: {}'.format(answer, trace)))
                             cached_responses['gambit'].append((response, answer, character))
                         else:
+                            logger.info("{} has gambit".format(character.id))
                             answered = True
                     else:
+                        logger.info("{} has good match".format(character.id))
                         answered = True
                 else:
                     if not response.get('bad'):
@@ -398,11 +412,13 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                 else:
                     answered = False
                     cross_trace.append((character.id, stage, 'Pass through. Answer: {}, Weight: {}, Trace: {}'.format(answer, weight, trace)))
-                    logger.info("{} has no answer".format(character.id))
-                    if 'markov' not in character.id:
-                        cached_responses['pass'].append((response, answer, character))
+                    logger.info("{} has answer but dismissed".format(character.id))
+                    if character.id == 'markov':
+                        cached_responses['markov'].append((response, answer, character))
+                    elif character.id == 'es':
+                        cached_responses['es'].append((response, answer, character))
                     else:
-                        cached_responses['?'].append((response, answer, character))
+                        cached_responses['pass'].append((response, answer, character))
         else:
             if response.get('repeat'):
                 answer = response.get('repeat')
@@ -471,16 +487,16 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                 break
 
     if not answer:
-        for response_type in ['pass', 'nogoodmatch', 'quibble', 'repeat', 'gambit', 'pickup', '?']:
-            if cached_responses.get(response_type):
-                response, answer, hit_character = cached_responses.get(response_type)[0]
-                if response_type == 'repeat':
-                    pass
-                response['text'] = answer
-                cross_trace.append(
-                    (hit_character.id, response_type,
-                    response.get('trace') or 'No trace'))
-                break
+        logger.info("Picking answer from cache %s" % cached_responses.keys())
+        weights = np.array([float(RESPONSE_TYPE_WEIGHTS.get(k, 0)) for k in cached_responses.keys()])
+        pweights = weights/sum(weights)
+        key = np.random.choice(cached_responses.keys(), p=pweights)
+        logger.info("Picked %s from cache by p=%s" % (key, pweights))
+        response, answer, hit_character = cached_responses.get(key)[0]
+        response['text'] = answer
+        cross_trace.append(
+            (hit_character.id, key,
+            response.get('trace') or 'No trace'))
 
     if answer and re.match('.*{.*}.*', answer):
         logger.info("Template answer {}".format(answer))

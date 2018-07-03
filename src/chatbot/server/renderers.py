@@ -26,7 +26,7 @@ def render_location(t):
         city = location.get('city')
         if city:
             if neighborhood:
-                location = '%s, %s' % (neighborhood, city)
+                location = '%s %s' % (neighborhood, city)
             else:
                 location = city
             if location:

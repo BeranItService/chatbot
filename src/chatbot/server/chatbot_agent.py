@@ -23,10 +23,11 @@ TRANSLATE_ERROR = 5
 
 logger = logging.getLogger('hr.chatbot.server.chatbot_agent')
 
-from loader import load_characters
+from loader import load_characters, dyn_properties
 from config import CHARACTER_PATH, RESET_SESSION_BY_HELLO, config
 CHARACTERS = load_characters(CHARACTER_PATH)
 REVISION = os.environ.get('HR_CHATBOT_REVISION')
+LOCATION = dyn_properties.get('location')
 
 from session import ChatSessionManager
 session_manager = ChatSessionManager()
@@ -707,6 +708,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
             OriginalAnswer=response['OriginalAnswer'],
             RunID=kwargs.get('run_id'),
             Topic=response.get('topic'),
+            Location=LOCATION,
         )
 
         logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))

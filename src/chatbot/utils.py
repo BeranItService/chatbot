@@ -13,6 +13,7 @@ import six
 import traceback
 import time
 import argparse
+import pprint
 
 logger = logging.getLogger('hr.chatbot.utils')
 
@@ -23,6 +24,7 @@ except ImportError:
 
 OPENWEATHERAPPID = os.environ.get('OPENWEATHERAPPID')
 CITY_LIST_FILE = os.environ.get('CITY_LIST_FILE')
+GCLOUD_API_KEY = os.environ.get('GCLOUD_API_KEY')
 
 cities = None
 
@@ -93,18 +95,28 @@ def shorten(text, cutoff):
     res = str_cleanup(res)
     return ret, res
 
-def get_location():
+def get_ip():
+    logger.info("Getting public IP address")
+    ip = None
+    try:
+        ip = subprocess.check_output(['wget', '--timeout', '3', '-qO-',
+            'ipinfo.io/ip']).strip()
+        logger.info("Got IP %s", ip)
+    except subprocess.CalledProcessError as ex:
+        logger.error("Can't find public IP address")
+        logger.error(ex)
+    if not ip:
+        logger.error("Public IP is invalid")
+    return ip
+
+def get_ip_location(ip):
+    if not ip:
+        return
     # docker run -d -p 8004:8004 --name freegeoip fiorix/freegeoip -http :8004
     host = os.environ.get('LOCATION_SERVER_HOST', 'localhost')
     port = os.environ.get('LOCATION_SERVER_PORT', '8004')
     location = None
     try:
-        logger.info("Getting public IP address")
-        ip = subprocess.check_output(['wget', '-t', '1', '--timeout', '3', '-qO-', 'ipinfo.io/ip']).strip()
-        if not ip:
-            logger.error("Public IP is invalid")
-            return None
-        logger.info("Got IP %s", ip)
         logger.info("Getting location")
         response = requests.get('http://{host}:{port}/json/{ip}'.format(host=host, port=port, ip=ip), timeout=2)
         location = response.json()
@@ -115,7 +127,7 @@ def get_location():
         if location['country_code'] == 'HK':
             location['city'] = 'Hong Kong'
         if location['country_code'] == 'TW':
-            location['city'] = 'Taiwan'
+            location['city'] = 'Taipei'
         if location['country_code'] == 'MO':
             location['city'] = 'Macau'
         if not location.get('city'):
@@ -129,6 +141,38 @@ def get_location():
     except Exception as ex:
         logger.error(ex)
     return location
+
+def get_location(ip=None):
+    location = {}
+    if not ip:
+        ip = get_ip()
+        location['ip'] = ip
+    try:
+        import googlemaps
+        gmaps = googlemaps.Client(key=GCLOUD_API_KEY, timeout=1)
+        response = gmaps.geolocate()
+        reverse_geocode_results = gmaps.reverse_geocode(
+            (response['location']['lat'], response['location']['lng']))
+        location['latitude'] = response['location']['lat']
+        location['longitude'] = response['location']['lng']
+        for result in reverse_geocode_results:
+            for address_component in result.get('address_components'):
+                types = address_component.get('types')
+                if 'political' in types:
+                    if 'country' in types:
+                        location['country'] = address_component.get('long_name')
+                    if 'administrative_area_level_1' in types:
+                        location['administrative_area_level_1'] = address_component.get('long_name')
+                    if 'administrative_area_level_2' in types:
+                        location['administrative_area_level_2'] = address_component.get('long_name')
+                    if 'neighborhood' in types:
+                        location['neighborhood'] = address_component.get('long_name')
+                    if 'locality' in types:
+                        location['city'] = address_component.get('long_name')
+        return location
+    except Exception as ex:
+        logger.error(traceback.format_exc())
+    return get_ip_location(ip)
 
 def get_weather(city):
     logger.info("Getting weather")
@@ -278,4 +322,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.location:
         location  = get_location()
-        print location['city']
+        pprint.pprint(location)

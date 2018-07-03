@@ -18,16 +18,20 @@ def load_dyn_properties():
     logger.info('Loading location & weather properties')
     location = get_location()
     if location:
-        if 'city' in location:
+        dyn_properties.update(location)
+        if 'neighborhood' in location:
+            dyn_properties['location'] = location.get('neighborhood')
+        elif 'city' in location:
             dyn_properties['location'] = location.get('city')
         elif 'country_name' in location:
             dyn_properties['location'] = location.get('country_name')
+        elif 'country' in location:
+            dyn_properties['location'] = location.get('country')
 
     weather_prop = None
     if location:
         weather = get_weather(
-            '{city},{country}'.format(
-                city=location['city'], country=location['country_code']))
+            '{city}'.format(city=location['city']))
         weather_prop = parse_weather(weather)
     if weather_prop:
         dyn_properties.update(weather_prop)

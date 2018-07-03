@@ -22,8 +22,13 @@ def render_weather(t):
 def render_location(t):
     location = get_location()
     if location:
-        if 'city' in location:
-            location = location.get('city')
+        neighborhood = location.get('neighborhood')
+        city = location.get('city')
+        if city:
+            if neighborhood:
+                location = '%s, %s' % (neighborhood, city)
+            else:
+                location = city
             if location:
                 return t.render(location=location)
             else:

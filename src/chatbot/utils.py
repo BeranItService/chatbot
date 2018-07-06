@@ -109,32 +109,44 @@ def get_ip():
         logger.error("Public IP is invalid")
     return ip
 
-def get_ip_location(ip):
+def fill_local_ip_address(location):
+    ip = location.get('ip')
+    if ip == '61.244.164.169':
+        location['neighborhood'] = 'Fo Tan Office'
+    elif ip == '61.92.69.39':
+        location['neighborhood'] = 'Science Park Office'
+    elif ip == '203.185.4.45':
+        location['neighborhood'] = 'Tsuen Wan Office'
+
+def get_ip_location(ip=None):
     if not ip:
-        return
+        return {}
     # docker run -d -p 8004:8004 --name freegeoip fiorix/freegeoip -http :8004
     host = os.environ.get('LOCATION_SERVER_HOST', 'localhost')
     port = os.environ.get('LOCATION_SERVER_PORT', '8004')
-    location = None
+    location = {}
     try:
         logger.info("Getting location")
-        response = requests.get('http://{host}:{port}/json/{ip}'.format(host=host, port=port, ip=ip), timeout=2)
-        location = response.json()
-        if not location:
+        response = requests.get('http://{host}:{port}/json/{ip}'.format(host=host, port=port, ip=ip), timeout=2).json()
+        if not response:
             logger.error("Can't get location")
             return None
         logger.info("Got location info %s", location)
-        if location['country_code'] == 'HK':
+        if response['country_code'] == 'HK':
             location['city'] = 'Hong Kong'
-        if location['country_code'] == 'TW':
+        if response['country_code'] == 'TW':
             location['city'] = 'Taipei'
-        if location['country_code'] == 'MO':
+        if response['country_code'] == 'MO':
             location['city'] = 'Macau'
-        if not location.get('city'):
-           if location['time_zone']:
-               time_zone = location['time_zone'].split('/')[-1]
-               location['city'] = time_zone
+        if not response.get('city'):
+           if response['time_zone']:
+               time_zone = response['time_zone'].split('/')[-1]
+               location['city'] = time_zone.replace('_', ' ')
                logger.warn("No city in the location info. Will use timezone name, %s", time_zone)
+        location['country'] = response['country_name']
+        location['neighborhood'] = response['region_name']
+        location['ip'] = response['ip']
+        fill_local_ip_address(location)
     except subprocess.CalledProcessError as ex:
         logger.error("Can't find public IP address")
         logger.error(ex)
@@ -149,30 +161,44 @@ def get_location(ip=None):
         location['ip'] = ip
     try:
         import googlemaps
-        gmaps = googlemaps.Client(key=GCLOUD_API_KEY, timeout=1)
+        gmaps = googlemaps.Client(key=os.environ.get('GCLOUD_API_KEY'))
         response = gmaps.geolocate()
         reverse_geocode_results = gmaps.reverse_geocode(
             (response['location']['lat'], response['location']['lng']))
-        location['latitude'] = response['location']['lat']
-        location['longitude'] = response['location']['lng']
         for result in reverse_geocode_results:
             for address_component in result.get('address_components'):
+                name = address_component.get('long_name')
+                if not name:
+                    continue
                 types = address_component.get('types')
                 if 'political' in types:
-                    if 'country' in types:
-                        location['country'] = address_component.get('long_name')
-                    if 'administrative_area_level_1' in types:
-                        location['administrative_area_level_1'] = address_component.get('long_name')
-                    if 'administrative_area_level_2' in types:
-                        location['administrative_area_level_2'] = address_component.get('long_name')
                     if 'neighborhood' in types:
-                        location['neighborhood'] = address_component.get('long_name')
+                        location['neighborhood'] = name
                     if 'locality' in types:
-                        location['city'] = address_component.get('long_name')
+                        location['city'] = name
+                    if 'country' in types:
+                        location['country'] = name
+                    if 'administrative_area_level_1' in types:
+                        location['administrative_area_level_1'] = name
+                    if 'administrative_area_level_2' in types:
+                        location['administrative_area_level_2'] = name
+                if 'route' in types:
+                    location['route'] = name
+                if 'street_number' in types:
+                    location['street_number'] = name
+        fill_local_ip_address(location)
         return location
     except Exception as ex:
-        logger.error(traceback.format_exc())
+        logger.error(ex)
     return get_ip_location(ip)
+
+def format_location(location):
+    address = []
+    for type in ['neighborhood', 'administrative_area_level_2',
+            'administrative_area_level_1', 'locality', 'country']:
+        if type in location:
+            address.append(location.get(type))
+    return ' '.join(address)
 
 def get_weather(city):
     logger.info("Getting weather")

@@ -11,19 +11,17 @@ import uuid
 import pandas as pd
 import traceback
 
-from jinja2 import Template
-from chatbot.polarity import Polarity
-from chatbot.db import get_mongodb, MongoDB
-from hr_msgs.msg import ChatMessage, TTS
-from std_msgs.msg import String
-from audio_stream.msg import audiodata
-import dynamic_reconfigure
-from dynamic_reconfigure.server import Server
-import dynamic_reconfigure.client
 from chatbot.cfg import ChatbotConfig
 from chatbot.client import Client
-from blender_api_msgs.msg import SetGesture, Target
-from r2_perception.msg import Forget, ForgetAll, Assign, State
+from chatbot.db import get_mongodb, MongoDB
+from chatbot.polarity import Polarity
+from dynamic_reconfigure.server import Server
+from hr_msgs.msg import Forget, ForgetAll, Assign, State
+from hr_msgs.msg import audiodata, SetGesture, Target, ChatMessage, TTS
+from jinja2 import Template
+from std_msgs.msg import String
+import dynamic_reconfigure
+import dynamic_reconfigure.client
 
 logger = logging.getLogger('hr.chatbot.ai')
 HR_CHATBOT_AUTHKEY = os.environ.get('HR_CHATBOT_AUTHKEY', 'AAAAB3NzaC')

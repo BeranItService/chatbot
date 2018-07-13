@@ -503,8 +503,14 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
         logger.info("Template answer {}".format(answer))
         try:
             response['orig_text'] = answer
-            answer = render(answer)
+            render_result = render(answer)
+            answer = render_result['render_result']
+            lineno = render_result['variables'].get('lineno')
             response['text'] = answer
+            response['lineno'] = lineno
+            if re.search('{.*}', answer):
+                logger.error("answer contains illegal characters")
+                answer = re.sub('{.*}', '', answer)
         except Exception as ex:
             answer = ''
             response['text'] = ''
@@ -709,6 +715,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
             RunID=kwargs.get('run_id'),
             Topic=response.get('topic'),
             Location=LOCATION,
+            LineNO=response.get('lineno')
         )
 
         logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))

@@ -1,6 +1,7 @@
 from functools import wraps
 from flask import request, Response
 import json
+import return_codes
 
 from config import HR_CHATBOT_AUTHKEY
 
@@ -12,7 +13,9 @@ def check_auth(auth):
 
 
 def authenticate():
-    return Response(json_encode({'ret': 401, 'response': {'text': 'Could not verify your access'}}),
+    response = {}
+    return_codes.fill_return_code(response, return_codes.AUTHENTICATE_FAILURE)
+    return Response(json_encode({'response': response}),
                     mimetype="application/json")
 
 def get_token_auth_header():

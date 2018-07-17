@@ -14,13 +14,6 @@ from collections import defaultdict
 from threading import RLock
 sync = RLock()
 
-SUCCESS = 0
-WRONG_CHARACTER_NAME = 1
-NO_PATTERN_MATCH = 2
-INVALID_SESSION = 3
-INVALID_QUESTION = 4
-TRANSLATE_ERROR = 5
-
 logger = logging.getLogger('hr.chatbot.server.chatbot_agent')
 
 from loader import load_characters, dyn_properties
@@ -41,6 +34,7 @@ from chatbot.server.character import TYPE_AIML, TYPE_CS
 from operator import add, sub, mul, truediv, pow
 import math
 from chatbot.server.template import render
+import return_codes
 
 OPERATOR_MAP = {
     '[add]': add,
@@ -505,7 +499,9 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
             response['orig_text'] = answer
             render_result = render(answer)
             answer = render_result['render_result']
-            lineno = render_result['variables'].get('lineno')
+            variables = render_result['variables']
+            logger.info("render variables %s", variables)
+            lineno = variables.get('lineno')
             response['text'] = answer
             response['lineno'] = lineno
             if re.search('{.*}', answer):
@@ -589,20 +585,22 @@ def rate_answer(sid, idx, rate):
         return False
     return True
 
-
 def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     """
     return (response dict, return code)
     """
     response = {'text': '', 'emotion': '', 'botid': '', 'botname': ''}
+    return_codes.fill_return_code(response, return_codes.SUCCESS)
     response['lang'] = lang
 
     sess = session_manager.get_session(sid)
     if sess is None:
-        return response, INVALID_SESSION
+        return_codes.fill_return_code(response, return_codes.INVALID_SESSION)
+        return response
 
     if not question or not question.strip():
-        return response, INVALID_QUESTION
+        return_codes.fill_return_code(response, return_codes.INVALID_QUESTION)
+        return response
 
     botname = sess.session_context.botname
     if not botname:
@@ -624,11 +622,13 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         except Exception as ex:
             logger.error(ex)
             logger.error(traceback.format_exc())
-            return response, TRANSLATE_ERROR
+            return_codes.fill_return_code(response, return_codes.TRANSLATE_ERROR)
+            return response
 
     if not responding_characters:
         logger.error("Wrong characer name")
-        return response, WRONG_CHARACTER_NAME
+        return_codes.fill_return_code(response, return_codes.WRONG_CHARACTER_NAME)
+        return response
 
     # Handle commands
     if question == ':reset':
@@ -638,7 +638,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     for c in responding_characters:
         if c.is_command(question):
             response.update(c.respond(question, lang, sess, query, request_id))
-            return response, SUCCESS
+            return response
 
     response['yousaid'] = question
 
@@ -693,7 +693,8 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
             except Exception as ex:
                 logger.error(ex)
                 logger.error(traceback.format_exc())
-                return response, TRANSLATE_ERROR
+                return_codes.fill_return_code(response, return_codes.TRANSLATE_ERROR)
+                return response
 
         sess.add(
             response['OriginalQuestion'],
@@ -717,12 +718,12 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
             Location=LOCATION,
             LineNO=response.get('lineno')
         )
-
         logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))
-        return response, SUCCESS
+        return response
     else:
         logger.error("No pattern match")
-        return response, NO_PATTERN_MATCH
+        return_codes.fill_return_code(response, return_codes.NO_PATTERN_MATCH)
+        return response
 
 def said(sid, text):
     sess = session_manager.get_session(sid)

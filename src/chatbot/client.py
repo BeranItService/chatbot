@@ -28,12 +28,6 @@ def get_client_id():
     host = subprocess.check_output('hostname', shell=True).strip()
     return '{}@{}'.format(user, host)
 
-ERRORS = {
-1: 'Wrong Character Name',
-2: 'No Answer',
-3: 'Invalid Session',
-4: 'Invalid Question'
-}
 HISTFILE = os.path.expanduser('~/.hr/chatbot/client_history')
 HISTFILE_SIZE = 1000
 
@@ -152,17 +146,19 @@ class Client(cmd.Cmd, object):
             'X-Request-ID': request_id or str(uuid.uuid1())
         }
         r = requests.get('{}/chat'.format(self.root_url), params=params, headers=headers)
-        ret = r.json().get('ret')
-        if r.status_code != 200:
-            self.stdout.write("Request error: {}\n".format(r.status_code))
-
-        if ret != 0:
-            self.stdout.write("QA error: error code {}, botname {}, question {}, lang {}\n".format(
-                ret, self.botname, question, self.lang))
-            raise Exception("QA error: {}({})".format(ERRORS.get(ret, 'Unknown'), ret))
 
         response = {'text': '', 'emotion': '', 'botid': '', 'botname': ''}
         response.update(r.json().get('response'))
+        err_code = response.get('err_code', 0)
+        err_msg = response.get('err_msg', '')
+
+        if r.status_code != 200:
+            self.stdout.write("Request error: {}\n".format(r.status_code))
+
+        if err_code != 0:
+            self.stdout.write("QA error: error code {}, botname {}, question {}, lang {}\n".format(
+                err_code, self.botname, question, self.lang))
+            raise Exception("QA error: {}({})".format(err_code, err_msg))
 
         if question == '[loopback]':
             self.timer = threading.Timer(self.timeout, self.ask, (question, ))

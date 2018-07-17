@@ -72,7 +72,7 @@ sh, fh = init_logging()
 from chatbot.server.auth import requires_auth
 from chatbot.server.auth import check_auth, authenticate
 
-from flask import Flask, request, Response, send_from_directory
+from flask import Flask, request, Response, send_from_directory, stream_with_context
 
 from chatbot.server.chatbot_agent import (
     ask, list_character, session_manager, set_weights, set_context,
@@ -111,10 +111,11 @@ def _chat():
     request_id = request.headers.get('X-Request-Id')
     marker = data.get('marker', 'default')
     run_id = data.get('run_id', '')
-    response, ret = ask(
+    response = ask(
         question, lang, session, query,
         request_id=request_id, marker=marker, run_id=run_id)
-    return Response(json_encode({'ret': ret, 'response': response}),
+
+    return Response(json_encode({'response': response}),
                     mimetype="application/json")
 
 
@@ -130,9 +131,9 @@ def _batch_chat():
     lang = request.form.get('lang', 'en-US')
     responses = []
     for idx, question in questions:
-        response, ret = ask(str(question), lang, session)
+        response = ask(str(question), lang, session)
         responses.append((idx, response, ret))
-    return Response(json_encode({'ret': 0, 'response': responses}),
+    return Response(json_encode({'response': responses}),
                     mimetype="application/json")
 
 @app.route(ROOT + '/said', methods=['GET'])

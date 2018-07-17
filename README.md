@@ -53,12 +53,12 @@ There is a client for testing purpose. It is called [client.py](https://github.c
 
 Run `$ python client.py`, then you can ask questions and get the answers. Type `help` for the usage.
 
-## Chatbot Server API (v1.1)
+## Chatbot Server API (v2.0)
 
 ### Start a session
 
 ```
-GET /v1.1/start_session
+GET /v2.0/start_session
 ```
 
 Parameters: 
@@ -75,7 +75,7 @@ Return:
 ### List responding character chain
 
 ```
-GET /v1.1/chatbots
+GET /v2.0/chatbots
 ```
 
 Parameters: 
@@ -90,7 +90,7 @@ Return:
 ### Chat
 
 ```
-GET /v1.1/chat
+GET /v2.0/chat
 ```
 
 Parameters: 
@@ -101,13 +101,12 @@ Parameters:
 - *query* - It's a try ask (True or False)
 
 Return:
-- *ret* - Return code
 - *response*
 
 ### Batch Chat
 
 ```
-POST /v1.1/batch_chat
+POST /v2.0/batch_chat
 ```
 
 Parameters: 
@@ -123,7 +122,7 @@ Return:
 ### Get Bot Names
 
 ```
-GET /v1.1/bot_names
+GET /v2.0/bot_names
 ```
 
 Parameters: 
@@ -136,7 +135,7 @@ Return:
 ### Set Weights for Each Tier in the Chain
 
 ```
-GET /v1.1/set_weights
+GET /v2.0/set_weights
 ```
 
 Parameters:
@@ -151,7 +150,7 @@ Return:
 ### Upload character
 
 ```
-GET  /v1.1/upload_character
+GET  /v2.0/upload_character
 ```
 
 Parameters:
@@ -166,7 +165,7 @@ Return:
 ### Rate the answer
 
 ```
-GET /v1.1/rate
+GET /v2.0/rate
 ```
 
 Parameters:
@@ -182,7 +181,7 @@ Return:
 ### List current sessions
 
 ```
-GET /v1.1/sessions
+GET /v2.0/sessions
 ```
 
 Parameters:
@@ -195,7 +194,7 @@ Return:
 ### Set custom context
 
 ```
-GET /v1.1/set_context
+GET /v2.0/set_context
 ```
 
 Parameters:
@@ -210,7 +209,7 @@ Return:
 ### Remove context
 
 ```
-GET /v1.1/remove_context
+GET /v2.0/remove_context
 ```
 
 Parameters:
@@ -225,7 +224,7 @@ Return:
 ### Get session context
 
 ```
-GET /v1.1/get_context
+GET /v2.0/get_context
 ```
 
 Parameters:
@@ -240,7 +239,7 @@ Return:
 ### Add the message to the output history of the control tier, as the tier has said that before
 
 ```
-GET /v1.1/said
+GET /v2.0/said
 ```
 
 Parameters:
@@ -254,7 +253,7 @@ Return:
 
 
 ```
-GET /v1.1/update_config
+GET /v2.0/update_config
 ```
 
 Parameters:

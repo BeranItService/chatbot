@@ -6,11 +6,7 @@ import requests
 import subprocess
 import logging
 import json
-import pandas as pd
-import numpy as np
-import datetime as dt
 import six
-import traceback
 import time
 import argparse
 import pprint
@@ -250,26 +246,6 @@ def check_online(url='8.8.8.8', port='80', timeout=1):
     except Exception as ex:
         return False
     return True
-
-def get_emotion(timedelta=3):
-    emotion_file = os.path.expanduser('~/.hr/chatbot/data/emotion.csv')
-    if os.path.isfile(emotion_file):
-        df = pd.read_csv(emotion_file, header=None, parse_dates=[0])
-        df.columns = ['Datetime', 'Emotion']
-        df = df[(dt.datetime.utcnow()-df['Datetime'])/np.timedelta64(1, 's')<timedelta]
-        if not df.empty:
-            return df.tail(1).iloc[0].Emotion
-
-def get_detected_object(timedelta=10):
-    object_file = os.path.expanduser('~/.hr/chatbot/data/objects.csv')
-    if os.path.isfile(object_file):
-        df = pd.read_csv(object_file, header=None, parse_dates=[0])
-        df.columns = ['Datetime', 'Item']
-        df = df[(dt.datetime.utcnow()-df['Datetime'])/np.timedelta64(1, 's')<timedelta]
-        if not df.empty:
-            item = df.tail(1).iloc[0].Item
-            logger.warn("Get item {}".format(item))
-            return item
 
 def do_translate(text, target_language='en-US'):
     lang = None

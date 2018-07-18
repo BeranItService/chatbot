@@ -145,29 +145,34 @@ class Client(cmd.Cmd, object):
         headers = {
             'X-Request-ID': request_id or str(uuid.uuid1())
         }
-        r = requests.get('{}/chat'.format(self.root_url), params=params, headers=headers)
+        with requests.get('{}/chat'.format(self.root_url), params=params, headers=headers, stream=True) as r:
+            response = {'text': '', 'emotion': '', 'botid': '', 'botname': ''}
+            if r.encoding is None:
+                r.encoding = 'utf-8'
+            for line in r.iter_lines():
+                if not line:
+                    continue
+                _response = json.loads(line)
 
-        response = {'text': '', 'emotion': '', 'botid': '', 'botname': ''}
-        response.update(r.json().get('response'))
-        err_code = response.get('err_code', 0)
-        err_msg = response.get('err_msg', '')
+                response.update(_response)
+                err_code = response.get('err_code', 0)
+                err_msg = response.get('err_msg', '')
 
-        if r.status_code != 200:
-            self.stdout.write("Request error: {}\n".format(r.status_code))
+                if r.status_code != 200:
+                    self.stdout.write("Request error: {}\n".format(r.status_code))
 
-        if err_code != 0:
-            self.stdout.write("QA error: error code {}, botname {}, question {}, lang {}\n".format(
-                err_code, self.botname, question, self.lang))
-            raise Exception("QA error: {}({})".format(err_code, err_msg))
+                if err_code != 0:
+                    self.stdout.write("QA error: error code {}, botname {}, question {}, lang {}\n".format(
+                        err_code, self.botname, question, self.lang))
+                    raise Exception("QA error: {}({})".format(err_code, err_msg))
 
-        if question == '[loopback]':
-            self.timer = threading.Timer(self.timeout, self.ask, (question, ))
-            self.timer.start()
-            logger.info("Start {} timer with timeout {}".format(
-                question, self.timeout))
+                if question == '[loopback]':
+                    self.timer = threading.Timer(self.timeout, self.ask, (question, ))
+                    self.timer.start()
+                    logger.info("Start {} timer with timeout {}".format(
+                        question, self.timeout))
 
-        self.process_response(response)
-        return response
+                self.process_response(response)
 
     def list_chatbot(self):
         params = {'Auth': self.client_key, 'lang': self.lang, 'session': self.session}

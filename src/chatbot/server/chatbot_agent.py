@@ -35,6 +35,7 @@ from operator import add, sub, mul, truediv, pow
 import math
 from chatbot.server.template import render
 import return_codes
+from chatbot.server.response import Response
 
 OPERATOR_MAP = {
     '[add]': add,
@@ -589,18 +590,19 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     """
     return (response dict, return code)
     """
-    response = {'text': '', 'emotion': '', 'botid': '', 'botname': ''}
+    response = Response()
+
     return_codes.fill_return_code(response, return_codes.SUCCESS)
     response['lang'] = lang
 
     sess = session_manager.get_session(sid)
     if sess is None:
         return_codes.fill_return_code(response, return_codes.INVALID_SESSION)
-        return response
+        yield str(response)
 
     if not question or not question.strip():
         return_codes.fill_return_code(response, return_codes.INVALID_QUESTION)
-        return response
+        yield str(response)
 
     botname = sess.session_context.botname
     if not botname:
@@ -623,12 +625,12 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
             logger.error(ex)
             logger.error(traceback.format_exc())
             return_codes.fill_return_code(response, return_codes.TRANSLATE_ERROR)
-            return response
+            yield str(response)
 
     if not responding_characters:
         logger.error("Wrong characer name")
         return_codes.fill_return_code(response, return_codes.WRONG_CHARACTER_NAME)
-        return response
+        yield str(response)
 
     # Handle commands
     if question == ':reset':
@@ -638,7 +640,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     for c in responding_characters:
         if c.is_command(question):
             response.update(c.respond(question, lang, sess, query, request_id))
-            return response
+            yield str(response)
 
     response['yousaid'] = question
 
@@ -694,7 +696,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
                 logger.error(ex)
                 logger.error(traceback.format_exc())
                 return_codes.fill_return_code(response, return_codes.TRANSLATE_ERROR)
-                return response
+                yield str(response)
 
         sess.add(
             response['OriginalQuestion'],
@@ -719,11 +721,11 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
             LineNO=response.get('lineno')
         )
         logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))
-        return response
+        yield str(response)
     else:
         logger.error("No pattern match")
         return_codes.fill_return_code(response, return_codes.NO_PATTERN_MATCH)
-        return response
+        yield str(response)
 
 def said(sid, text):
     sess = session_manager.get_session(sid)

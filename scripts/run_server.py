@@ -115,9 +115,7 @@ def _chat():
         question, lang, session, query,
         request_id=request_id, marker=marker, run_id=run_id)
 
-    return Response(json_encode({'response': response}),
-                    mimetype="application/json")
-
+    return Response(stream_with_context(response), mimetype="application/json")
 
 @app.route(ROOT + '/batch_chat', methods=['POST'])
 def _batch_chat():

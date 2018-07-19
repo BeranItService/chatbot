@@ -4,10 +4,10 @@ from .codes import CODES
 class Response(bunch.Bunch):
 
     def __init__(self):
-        self.text = ''
-        self.botid = ''
-        self.botname = ''
-        self.emotion = ''
+        self.text = None
+        self.botid = None
+        self.botname = None
+        self.emotion = None
         self.err_code = 0
         self.err_msg = ''
 
@@ -19,6 +19,7 @@ class Response(bunch.Bunch):
             logger.warn("Code %s is not valid", code)
         self.err_code = code
         self.err_msg = CODES.get(code)
+        return self
 
 class Request(bunch.Bunch):
 

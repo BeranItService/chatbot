@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import numpy as np
+import datetime as dt
 reload(sys)
 sys.setdefaultencoding('utf-8')
 import atexit
@@ -35,7 +36,7 @@ DISABLE_QUIBBLE = True
 FALLBACK_LANG = 'en-US'
 
 from chatbot.utils import (shorten, str_cleanup, get_weather, parse_weather,
-        do_translate)
+        do_translate, norm2)
 from chatbot.words2num import words2num
 from chatbot.server.character import TYPE_AIML, TYPE_CS
 from operator import add, sub, mul, truediv, pow
@@ -526,6 +527,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
         answer = str_cleanup(response.get('text', ''))
 
     if not query and hit_character is not None:
+        logger.info("Hit by %s", hit_character)
         response['AnsweredBy'] = hit_character.id
         sess.last_used_character = hit_character
         hit_character.use(sess, response)
@@ -695,28 +697,31 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
                 logger.error(traceback.format_exc())
                 return response, TRANSLATE_ERROR
 
-        sess.add(
-            response['OriginalQuestion'],
-            response.get('text'),
-            AnsweredBy=response['AnsweredBy'],
-            User=user,
-            ClientID=client_id,
-            BotName=botname,
-            Trace=response['trace'],
-            Revision=REVISION,
-            Lang=lang,
-            ModQuestion=response['ModQuestion'],
-            RequestId=request_id,
-            Marker=kwargs.get('marker'),
-            TranslateInput=input_translated,
-            TranslateOutput=output_translated,
-            TranslatedQuestion=question,
-            OriginalAnswer=response['OriginalAnswer'],
-            RunID=kwargs.get('run_id'),
-            Topic=response.get('topic'),
-            Location=LOCATION,
-            LineNO=response.get('lineno')
-        )
+        record = {}
+        record['Datetime'] = dt.datetime.utcnow()
+        record['Question'] = response.get('OriginalQuestion')
+        record['Answer'] = response.get('text')
+        record['AnsweredBy'] = response.get('AnsweredBy')
+        record['User'] = user
+        record['ClientID'] = client_id
+        record['BotName'] = botname
+        record['Trace'] = response.get('trace')
+        record['Revision'] = REVISION
+        record['Lang'] = lang
+        record['ModQuestion'] = response.get('ModQuestion')
+        record['RequestId'] = request_id
+        record['Marker'] = kwargs.get('marker')
+        record['TranslateInput'] = input_translated
+        record['TranslateOutput'] = output_translated
+        record['TranslatedQuestion'] = question
+        record['OriginalAnswer'] = response.get('OriginalAnswer')
+        record['RunID'] = kwargs.get('run_id')
+        record['Topic'] = response.get('topic')
+        record['Location'] = LOCATION
+        record['LineNO'] = response.get('lineno')
+        record['NormQuestion'] = norm2(response.get('OriginalQuestion'))
+        record['NormAnswer'] = norm2(response.get('text'))
+        sess.add(record)
 
         logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))
         return response, SUCCESS

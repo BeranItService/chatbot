@@ -52,20 +52,14 @@ class ResponseCache(object):
             return False
         return True
 
-    def add(self, question, answer, datetime=None, **kwargs):
-        time = datetime or dt.datetime.utcnow()
-        record = {
-            'Datetime': time,
-            'Question': question,
-            'Answer': answer
-        }
-        if kwargs:
-            record.update(kwargs)
+    def add(self, record):
+        question = record['Question']
+        answer = record['Answer']
         self.record.append(record)
         self.index[norm(question)].append(len(self.record) - 1)
         self.last_question = question
         self.last_answer = answer
-        self.last_time = time
+        self.last_time = record.get('Datetime')
 
     def rate(self, rate, idx):
         if idx < 0:

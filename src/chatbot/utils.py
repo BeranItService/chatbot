@@ -14,6 +14,7 @@ import traceback
 import time
 import argparse
 import pprint
+from wordsub import english_word_sub
 
 logger = logging.getLogger('hr.chatbot.utils')
 
@@ -25,6 +26,7 @@ except ImportError:
 OPENWEATHERAPPID = os.environ.get('OPENWEATHERAPPID')
 CITY_LIST_FILE = os.environ.get('CITY_LIST_FILE')
 GCLOUD_API_KEY = os.environ.get('GCLOUD_API_KEY')
+PUNCTUATORS = re.compile(r"""[.|?|!]+$""")
 
 cities = None
 
@@ -316,6 +318,15 @@ def detect_language(text):
         result['language'] == 'zh'
     return result
 
+def norm2(text):
+    if text is None:
+        return text
+    text = norm(text)
+    text = PUNCTUATORS.sub('', text)
+    text = english_word_sub.sub(text)
+    text = text.lower()
+    return text
+
 def test():
     text = '''My mind is built using Hanson Robotics' character engine, a simulated humanlike brain that runs inside a personal computer. Within this framework, Hanson has modelled Phil's personality and emotions, allowing you to talk with Phil through me, using speech recognition, natural language understanding, and computer vision such as face recognition, and animation of the robotic muscles in my face.'''
     print len(text)
@@ -339,6 +350,7 @@ def test():
     print get_detected_object(100)
     print do_translate(u"你好", 'ru-RU')[1]
     print do_translate(u"о Кларе с Карлом во мраке все раки шумели в драке", 'cmn-Hans-CN')[1]
+    print norm2(u"[hi] 你好What's new?")
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

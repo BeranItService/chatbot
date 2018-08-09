@@ -77,28 +77,13 @@ class Session(object):
             logger.info("Set test session")
         self.test = test
 
-    def add(self, question, answer, **kwargs):
+    #def add(self, question, answer, **kwargs):
+    def add(self, record):
         if not self.closed:
-            time = dt.datetime.utcnow()
-            self.cache.add(question, answer, time, **kwargs)
+            self.cache.add(record)
             self.dump()
             self.last_active_time = self.cache.last_time
             self.active = True
-            if mongodb.client is not None:
-                #chatlog = {'Datetime': time.timestamp(), 'Question': question, "Answer": answer}
-                chatlog = {'Datetime': time, 'Question': question, "Answer": answer}
-                chatlog.update(kwargs)
-                try:
-                    mongocollection = mongodb.client[mongodb.dbname][ROBOT_NAME]['chatbot']['chatlogs']
-                    result = mongocollection.insert_one(chatlog)
-                    logger.info("Added chatlog to mongodb, id %s", result.inserted_id)
-                    sharecollection = mongodb.get_share_collection()
-                    result = sharecollection.insert_one({'node': 'chatbot', 'msg':chatlog})
-                    logger.info("Added chatlog to share collection, id %s", result.inserted_id)
-                except Exception as ex:
-                    mongodb.client = None
-                    logger.error(traceback.format_exc())
-                    logger.warn("Deactivate mongodb")
             return True
         return False
 

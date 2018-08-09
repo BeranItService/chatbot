@@ -722,7 +722,6 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         record['NormQuestion'] = norm2(response.get('OriginalQuestion'))
         record['NormAnswer'] = norm2(response.get('text'))
         sess.add(record)
-
         logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))
         return response, SUCCESS
     else:

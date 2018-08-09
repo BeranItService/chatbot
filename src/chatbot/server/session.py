@@ -77,9 +77,9 @@ class Session(object):
             logger.info("Set test session")
         self.test = test
 
-    #def add(self, question, answer, **kwargs):
     def add(self, record):
         if not self.closed:
+            logger.info("chatbot_log", extra={'data': record})
             self.cache.add(record)
             self.dump()
             self.last_active_time = self.cache.last_time

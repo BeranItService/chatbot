@@ -38,7 +38,7 @@ def load_dyn_properties():
     weather_prop = None
     if location:
         weather = get_weather(
-            '{city}'.format(city=location['city']))
+            '{city}'.format(city=location.get('city') or location.get('neighborhood')))
         weather_prop = parse_weather(weather)
     if weather_prop:
         dyn_properties.update(weather_prop)
@@ -51,6 +51,7 @@ load_dyn_properties()
 
 def load_characters(character_path):
     characters = []
+    logger.info("Character path %s" % character_path)
     if os.path.isfile(character_path) and character_path.endswith('.yaml'):
         characters.extend(ConfigFileLoader.load(character_path))
     else:

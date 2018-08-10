@@ -10,7 +10,7 @@ import datetime as dt
 reload(sys)
 sys.setdefaultencoding('utf-8')
 import atexit
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 from threading import RLock
 sync = RLock()
@@ -697,28 +697,29 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
                 logger.error(traceback.format_exc())
                 return response, TRANSLATE_ERROR
 
-        record = {}
+        record = OrderedDict()
         record['Datetime'] = dt.datetime.utcnow()
         record['Question'] = response.get('OriginalQuestion')
         record['Answer'] = response.get('text')
-        record['AnsweredBy'] = response.get('AnsweredBy')
-        record['User'] = user
-        record['ClientID'] = client_id
-        record['BotName'] = botname
-        record['Trace'] = response.get('trace')
-        record['Revision'] = REVISION
+        record['Rate'] = ''
         record['Lang'] = lang
-        record['ModQuestion'] = response.get('ModQuestion')
-        record['RequestId'] = request_id
-        record['Marker'] = kwargs.get('marker')
-        record['TranslateInput'] = input_translated
-        record['TranslateOutput'] = output_translated
-        record['TranslatedQuestion'] = question
-        record['OriginalAnswer'] = response.get('OriginalAnswer')
-        record['RunID'] = kwargs.get('run_id')
-        record['Topic'] = response.get('topic')
         record['Location'] = LOCATION
+        record['RequestId'] = request_id
         record['LineNO'] = response.get('lineno')
+        record['OriginalAnswer'] = response.get('OriginalAnswer')
+        record['Revision'] = REVISION
+        record['TranslatedQuestion'] = question
+        record['Topic'] = response.get('topic')
+        record['ModQuestion'] = response.get('ModQuestion')
+        record['Trace'] = response.get('trace')
+        record['AnsweredBy'] = response.get('AnsweredBy')
+        record['TranslateOutput'] = output_translated
+        record['ClientID'] = client_id
+        record['TranslateInput'] = input_translated
+        record['User'] = user
+        record['Marker'] = kwargs.get('marker')
+        record['BotName'] = botname
+        record['RunID'] = kwargs.get('run_id')
         record['NormQuestion'] = norm2(response.get('OriginalQuestion'))
         record['NormAnswer'] = norm2(response.get('text'))
         sess.add(record)

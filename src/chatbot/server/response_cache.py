@@ -85,18 +85,13 @@ class ResponseCache(object):
         return records
 
     def dump(self, fname):
-        if self.cursor >= len(self.record):
+        if self.record and self.cursor >= len(self.record):
             logger.warn("Nothing to dump")
             return False
-
-        header = ['Datetime', 'Question', 'Answer', 'Rate']
-        for k in self.record[0].keys():
-            if k not in header:
-                header.append(k)
-
         dirname = os.path.dirname(fname)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
+        header = self.record[0].keys()
         with open(fname, 'a') as f:
             writer = csv.DictWriter(f, header, extrasaction='ignore')
             if self.cursor == 0:

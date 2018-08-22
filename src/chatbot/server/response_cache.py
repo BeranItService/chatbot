@@ -85,6 +85,9 @@ class ResponseCache(object):
         return records
 
     def dump(self, fname):
+        if not self.record:
+            logger.warn("Nothing to dump")
+            return False
         if self.record and self.cursor >= len(self.record):
             logger.warn("Nothing to dump")
             return False

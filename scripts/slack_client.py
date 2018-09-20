@@ -126,7 +126,7 @@ class HRSlackBot(object):
                     if session is not None:
                         session.session_context.client = client
                         session.session_context.channel = channel
-                        self.info(channel, "Session <{url}/v1.1/session_history?session={sid}&Auth={auth}|{sid}>".format(
+                        self.info(channel, "Session <{url}/v2.0/session_history?session={sid}&Auth={auth}|{sid}>".format(
                             url=CHATBOT_SERVER_URL, sid=session.sid, auth=HR_CHATBOT_AUTHKEY))
                     else:
                         self.error(channel, "Can't get session")
@@ -181,7 +181,7 @@ class HRSlackBot(object):
                     session = self.session_manager.get_session(client.session)
                     session.session_context.client = client
                     session.session_context.channel = channel
-                    self.info(channel, "Session <{url}/v1.1/session_history?session={sid}&Auth={auth}|{sid}>".format(
+                    self.info(channel, "Session <{url}/v2.0/session_history?session={sid}&Auth={auth}|{sid}>".format(
                         url=CHATBOT_SERVER_URL, sid=session.sid, auth=HR_CHATBOT_AUTHKEY))
                     logger.info("Session is updated")
 

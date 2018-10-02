@@ -53,7 +53,7 @@ OPERATOR_MAP = {
 
 RESPONSE_TYPE_WEIGHTS = {
     'pass': 100,
-    'nogoodmatch': 20,
+    'nogoodmatch': 50,
     'quibble': 20,
     'gambit': 20,
     'repeat': 0,
@@ -418,7 +418,10 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                     if character.id == 'markov':
                         cached_responses['markov'].append((response, answer, character))
                     elif character.id == 'es':
-                        cached_responses['es'].append((response, answer, character))
+                        if response.get('exact_match') or response.get('ok_match'):
+                            cached_responses['es'].append((response, answer, character))
+                        else:
+                            cached_responses['nogoodmatch'].append((response, answer, character))
                     else:
                         cached_responses['pass'].append((response, answer, character))
         else:

@@ -53,7 +53,7 @@ class Character(object):
         raise NotImplementedError
 
     def use(self, session, response, **kwargs):
-        raise NotImplementedError
+        return NotImplemented
 
     def refresh(self, session):
         raise NotImplementedError

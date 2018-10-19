@@ -717,12 +717,12 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         record['Trace'] = response.get('trace')
         record['AnsweredBy'] = response.get('AnsweredBy')
         record['TranslateOutput'] = output_translated
-        record['ClientID'] = client_id
+        record['ClientId'] = client_id
         record['TranslateInput'] = input_translated
         record['User'] = user
         record['Marker'] = kwargs.get('marker')
         record['BotName'] = botname
-        record['RunID'] = kwargs.get('run_id')
+        record['RunId'] = kwargs.get('run_id')
         record['NormQuestion'] = norm2(response.get('OriginalQuestion'))
         record['NormAnswer'] = norm2(response.get('text'))
         sess.add(record)

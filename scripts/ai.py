@@ -341,12 +341,12 @@ class Chatbot():
 
     def write_request(self, request_id, chatmessages):
         requests = []
-        columns = ['Datetime', 'RequestID', 'Index', 'Source', 'AudioPath', 'Transcript', 'Confidence']
+        columns = ['Datetime', 'RequestId', 'Index', 'Source', 'AudioPath', 'Transcript', 'Confidence']
         for i, msg in enumerate(chatmessages):
             audio = os.path.basename(msg.audio_path)
             request = {
                 'Datetime':  dt.datetime.utcnow(),
-                'RequestID': request_id,
+                'RequestId': request_id,
                 'Index': i,
                 'Source': msg.source,
                 'AudioPath': audio,
@@ -483,6 +483,10 @@ class Chatbot():
 
         if not self.mute:
             self._blink_publisher.publish('chat_saying')
+            log_data = {}
+            log_data.update(response)
+            log_data['performance_report'] = True
+            logger.warn('Chatbot response: %s', text, extra={'data': log_data})
             self._response_publisher.publish(TTS(text=text, lang=lang))
 
         if rospy.has_param('{}/context'.format(self.node_name)):

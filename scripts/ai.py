@@ -483,6 +483,11 @@ class Chatbot():
 
         if not self.mute:
             self._blink_publisher.publish('chat_saying')
+            data = {
+                'performance_report': True,
+                'data': response
+            }
+            logger.warn("Chatbot response: %s", text, extra=data)
             self._response_publisher.publish(TTS(text=text, lang=lang))
 
         if rospy.has_param('{}/context'.format(self.node_name)):

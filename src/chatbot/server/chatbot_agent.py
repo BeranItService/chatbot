@@ -687,6 +687,20 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         #        except Exception:
         #            continue
 
+    record = OrderedDict()
+    record['Datetime'] = dt.datetime.utcnow()
+    record['Question'] = response.get('OriginalQuestion')
+    record['Rate'] = ''
+    record['Lang'] = lang
+    record['Location'] = LOCATION
+    record['RequestId'] = request_id
+    record['Revision'] = REVISION
+    record['ClientId'] = client_id
+    record['User'] = user
+    record['Marker'] = kwargs.get('marker')
+    record['BotName'] = botname
+    record['RunId'] = kwargs.get('run_id')
+
     if _response is not None and _response.get('text'):
         response.update(_response)
         response['OriginalAnswer'] = response.get('text')
@@ -700,36 +714,27 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
                 logger.error(traceback.format_exc())
                 return response, TRANSLATE_ERROR
 
-        record = OrderedDict()
-        record['Datetime'] = dt.datetime.utcnow()
-        record['Question'] = response.get('OriginalQuestion')
         record['Answer'] = response.get('text')
-        record['Rate'] = ''
-        record['Lang'] = lang
-        record['Location'] = LOCATION
-        record['RequestId'] = request_id
         record['LineNO'] = response.get('lineno')
         record['OriginalAnswer'] = response.get('OriginalAnswer')
-        record['Revision'] = REVISION
         record['TranslatedQuestion'] = question
         record['Topic'] = response.get('topic')
         record['ModQuestion'] = response.get('ModQuestion')
         record['Trace'] = response.get('trace')
         record['AnsweredBy'] = response.get('AnsweredBy')
         record['TranslateOutput'] = output_translated
-        record['ClientId'] = client_id
         record['TranslateInput'] = input_translated
-        record['User'] = user
-        record['Marker'] = kwargs.get('marker')
-        record['BotName'] = botname
-        record['RunId'] = kwargs.get('run_id')
         record['NormQuestion'] = norm2(response.get('OriginalQuestion'))
         record['NormAnswer'] = norm2(response.get('text'))
         sess.add(record)
         logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))
+        response.update(record)
+        response['Datetime'] = str(response['Datetime'])
         return response, SUCCESS
     else:
         logger.error("No pattern match")
+        response.update(record)
+        response['Datetime'] = str(response['Datetime'])
         return response, NO_PATTERN_MATCH
 
 def said(sid, text):

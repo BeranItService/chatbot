@@ -407,8 +407,8 @@ class Chatbot():
 
         logger.info("Get response {}".format(response))
 
-        for k, v in response.iteritems():
-            rospy.set_param('{}/response/{}'.format(self.node_name, k), v)
+        #for k, v in response.iteritems():
+        #    rospy.set_param('{}/response/{}'.format(self.node_name, k), v)
 
         text = response.get('text')
         emotion = response.get('emotion')

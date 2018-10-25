@@ -3,6 +3,7 @@
 
 import os
 import logging
+import logging.config
 import datetime as dt
 import json
 import shutil
@@ -26,49 +27,38 @@ if 'HR_CHARACTER_PATH' not in os.environ:
 from chatbot.server.config import SERVER_LOG_DIR, HISTORY_DIR
 
 def init_logging():
+    if os.environ.get('ROS_LOG_DIR'):
+        SERVER_LOG_DIR = os.environ.get('ROS_LOG_DIR')
     run_id = None
     try:
         run_id = subprocess.check_output('rosparam get /run_id'.split()).strip()
     except Exception as ex:
         run_id = None
-    ROS_LOG_DIR = os.environ.get('ROS_LOG_DIR', os.path.expanduser('~/.hr/log'))
-    server_log_dir = SERVER_LOG_DIR
     if run_id is not None:
-        server_log_dir = os.path.join(ROS_LOG_DIR, run_id, 'chatbot')
-    if not os.path.isdir(server_log_dir):
-        os.makedirs(server_log_dir)
-    log_config_file = '{}/{}.log'.format(
-        server_log_dir,
+        SERVER_LOG_DIR = os.path.join(SERVER_LOG_DIR, run_id, 'chatbot')
+
+    if not os.path.isdir(SERVER_LOG_DIR):
+        os.makedirs(SERVER_LOG_DIR)
+    log_config_file = '{}/{}.log'.format(SERVER_LOG_DIR,
         dt.datetime.strftime(dt.datetime.utcnow(), '%Y%m%d%H%M%S'))
-    link_log_fname = os.path.join(server_log_dir, 'latest.log')
+    link_log_fname = os.path.join(SERVER_LOG_DIR, 'latest.log')
     if os.path.islink(link_log_fname):
         os.unlink(link_log_fname)
     os.symlink(log_config_file, link_log_fname)
-    formatter = logging.Formatter(
-        '[%(name)s][%(levelname)s] %(asctime)s: %(message)s')
-    fh = logging.FileHandler(log_config_file)
-    fh.setFormatter(formatter)
-    sh = logging.StreamHandler()
-    if 'colorlog' in sys.modules and os.isatty(2):
-        cformat = '%(log_color)s' + formatter._fmt
-        formatter = colorlog.ColoredFormatter(
-            cformat,
-            log_colors={
-                'DEBUG':'reset',
-                'INFO': 'reset',
-                'WARNING': 'yellow',
-                'ERROR': 'red',
-                'CRITICAL': 'bold_red',
-            }
-        )
-    sh.setFormatter(formatter)
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
-    root_logger.addHandler(fh)
-    root_logger.addHandler(sh)
-    return sh, fh
 
-sh, fh = init_logging()
+    os.environ['ROS_LOG_FILENAME'] = log_config_file
+    os.environ['ROS_LOG_DIR'] = SERVER_LOG_DIR
+
+    config_file = os.environ['ROS_PYTHON_LOG_CONFIG_FILE']
+    default_config_file = os.path.join(CWD, 'python_logging.conf')
+    os.environ['ROS_LOG_FILENAME'] = log_config_file
+    if config_file and os.path.isfile(config_file):
+        logging.config.fileConfig(config_file)
+    else:
+        logging.config.fileConfig(default_config_file)
+
+init_logging()
+
 from chatbot.server.auth import requires_auth
 from chatbot.server.auth import check_auth, authenticate
 
@@ -403,12 +393,13 @@ def main():
 
     option = parser.parse_args()
 
+    root_logger = logging.getLogger()
     if option.verbose:
-        fh.setLevel(logging.INFO)
-        sh.setLevel(logging.INFO)
+        for h in root_logger.handlers:
+            h.setLevel(logging.INFO)
     else:
-        fh.setLevel(logging.INFO)
-        sh.setLevel(logging.WARN)
+        for h in root_logger.handlers:
+            h.setLevel(logging.WARN)
 
     if 'HR_CHATBOT_SERVER_EXT_PATH' in os.environ:
         sys.path.insert(0, os.path.expanduser(

@@ -54,8 +54,8 @@ OPERATOR_MAP = {
 RESPONSE_TYPE_WEIGHTS = {
     'pass': 100,
     'nogoodmatch': 50,
-    'quibble': 20,
-    'gambit': 20,
+    'quibble': 40,
+    'gambit': 50,
     'repeat': 0,
     'pickup': 0,
     'es': 20,
@@ -385,7 +385,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
             if good_match:
                 if response.get('exact_match') or response.get('ok_match'):
                     if response.get('gambit'):
-                        if random.random() < 0.5:
+                        if random.random() < 0.3:
                             logger.info("{} has gambit but dismissed".format(character.id))
                             cross_trace.append((character.id, stage, 'Ignore gambit answer. Answer: {}, Trace: {}'.format(answer, trace)))
                             cached_responses['gambit'].append((response, answer, character))

@@ -55,8 +55,8 @@ OPERATOR_MAP = {
 RESPONSE_TYPE_WEIGHTS = {
     'pass': 100,
     'nogoodmatch': 50,
-    'quibble': 20,
-    'gambit': 20,
+    'quibble': 40,
+    'gambit': 50,
     'repeat': 0,
     'pickup': 0,
     'es': 20,
@@ -386,7 +386,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
             if good_match:
                 if response.get('exact_match') or response.get('ok_match'):
                     if response.get('gambit'):
-                        if random.random() < 0.5:
+                        if random.random() < 0.3:
                             logger.info("{} has gambit but dismissed".format(character.id))
                             cross_trace.append((character.id, stage, 'Ignore gambit answer. Answer: {}, Trace: {}'.format(answer, trace)))
                             cached_responses['gambit'].append((response, answer, character))
@@ -688,6 +688,21 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         #        except Exception:
         #            continue
 
+    record = OrderedDict()
+    record['Datetime'] = dt.datetime.utcnow()
+    record['Question'] = response.get('OriginalQuestion')
+    record['Rate'] = ''
+    record['Lang'] = lang
+    record['Location'] = LOCATION
+    record['ServerIP'] = IP
+    record['RequestId'] = request_id
+    record['Revision'] = REVISION
+    record['ClientId'] = client_id
+    record['User'] = user
+    record['Marker'] = kwargs.get('marker')
+    record['BotName'] = botname
+    record['RunId'] = kwargs.get('run_id')
+
     if _response is not None and _response.get('text'):
         response.update(_response)
         response['OriginalAnswer'] = response.get('text')
@@ -701,37 +716,27 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
                 logger.error(traceback.format_exc())
                 return response, TRANSLATE_ERROR
 
-        record = OrderedDict()
-        record['Datetime'] = dt.datetime.utcnow()
-        record['Question'] = response.get('OriginalQuestion')
         record['Answer'] = response.get('text')
-        record['Rate'] = ''
-        record['Lang'] = lang
-        record['Location'] = LOCATION
-        record['ServerIP'] = IP
-        record['RequestId'] = request_id
         record['LineNO'] = response.get('lineno')
         record['OriginalAnswer'] = response.get('OriginalAnswer')
-        record['Revision'] = REVISION
         record['TranslatedQuestion'] = question
         record['Topic'] = response.get('topic')
         record['ModQuestion'] = response.get('ModQuestion')
         record['Trace'] = response.get('trace')
         record['AnsweredBy'] = response.get('AnsweredBy')
         record['TranslateOutput'] = output_translated
-        record['ClientID'] = client_id
         record['TranslateInput'] = input_translated
-        record['User'] = user
-        record['Marker'] = kwargs.get('marker')
-        record['BotName'] = botname
-        record['RunID'] = kwargs.get('run_id')
         record['NormQuestion'] = norm2(response.get('OriginalQuestion'))
         record['NormAnswer'] = norm2(response.get('text'))
         sess.add(record)
         logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))
+        response.update(record)
+        response['Datetime'] = str(response['Datetime'])
         return response, SUCCESS
     else:
         logger.error("No pattern match")
+        response.update(record)
+        response['Datetime'] = str(response['Datetime'])
         return response, NO_PATTERN_MATCH
 
 def said(sid, text):

@@ -34,6 +34,7 @@ def load_dyn_properties():
             else:
                 location_str = base_location
             dyn_properties['location'] = location_str
+        dyn_properties['ip'] = location.get('ip')
 
     weather_prop = None
     if location:

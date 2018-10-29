@@ -29,6 +29,7 @@ from config import CHARACTER_PATH, RESET_SESSION_BY_HELLO, config
 CHARACTERS = load_characters(CHARACTER_PATH)
 REVISION = os.environ.get('HR_CHATBOT_REVISION')
 LOCATION = dyn_properties.get('location')
+IP = dyn_properties.get('ip')
 
 from session import ChatSessionManager
 session_manager = ChatSessionManager()
@@ -693,6 +694,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     record['Rate'] = ''
     record['Lang'] = lang
     record['Location'] = LOCATION
+    record['ServerIP'] = IP
     record['RequestId'] = request_id
     record['Revision'] = REVISION
     record['ClientId'] = client_id

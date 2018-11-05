@@ -43,14 +43,7 @@ from chatbot.server.character import TYPE_AIML, TYPE_CS
 from operator import add, sub, mul, truediv, pow
 import math
 from chatbot.server.template import render
-
-OPERATOR_MAP = {
-    '[add]': add,
-    '[sub]': sub,
-    '[mul]': mul,
-    '[div]': truediv,
-    '[pow]': pow,
-}
+from model import Response, Request
 
 RESPONSE_TYPE_WEIGHTS = {
     'pass': 100,
@@ -110,11 +103,11 @@ def get_characters_by_name(name, local=True, lang=None, user=None):
 
 
 def list_character(lang, sid):
-    sess = session_manager.get_session(sid)
-    if sess is None:
+    session = session_manager.get_session(sid)
+    if session is None:
         return []
     characters = get_responding_characters(lang, sid)
-    weights = get_weights(characters, sess)
+    weights = get_weights(characters, session)
     return [(c.name, c.id, w, c.level, c.dynamic_level) for c, w in zip(characters, weights)]
 
 
@@ -124,12 +117,12 @@ def list_character_names():
 
 
 def set_weights(param, lang, sid):
-    sess = session_manager.get_session(sid)
-    if sess is None:
+    session = session_manager.get_session(sid)
+    if session is None:
         return False, "No session"
 
     if param == 'reset':
-        sess.session_context.weights = {}
+        session.session_context.weights = {}
         return True, "Weights are reset"
 
     weights = {}
@@ -150,15 +143,15 @@ def set_weights(param, lang, sid):
         logger.error(traceback.format_exc())
         return False, "Wrong weight format"
 
-    sess.session_context.weights = weights
+    session.session_context.weights = weights
     return True, "Weights are updated"
 
-def get_weights(characters, sess):
+def get_weights(characters, session):
     weights = []
-    if hasattr(sess.session_context, 'weights') and sess.session_context.weights:
+    if hasattr(session.session_context, 'weights') and session.session_context.weights:
         for c in characters:
-            if c.id in sess.session_context.weights:
-                weights.append(sess.session_context.weights.get(c.id))
+            if c.id in session.session_context.weights:
+                weights.append(session.session_context.weights.get(c.id))
             else:
                 weights.append(c.weight)
     else:
@@ -166,33 +159,33 @@ def get_weights(characters, sess):
     return weights
 
 def set_context(prop, sid):
-    sess = session_manager.get_session(sid)
-    if sess is None:
+    session = session_manager.get_session(sid)
+    if session is None:
         return False, "No session"
     for c in CHARACTERS:
         try:
-            c.set_context(sess, prop)
+            c.set_context(session, prop)
         except Exception:
             pass
     return True, "Context is updated"
 
 def remove_context(keys, sid):
-    sess = session_manager.get_session(sid)
-    if sess is None:
+    session = session_manager.get_session(sid)
+    if session is None:
         return False, "No session"
     for c in CHARACTERS:
         if c.type != TYPE_AIML and c.type != TYPE_CS:
             continue
         try:
             for key in keys:
-                c.remove_context(sess, key)
+                c.remove_context(session, key)
         except Exception:
             pass
     return True, "Context is updated"
 
 def get_context(sid, lang):
-    sess = session_manager.get_session(sid)
-    if sess is None:
+    session = session_manager.get_session(sid)
+    if session is None:
         return False, "No session"
     characters = get_responding_characters(lang, sid)
     context = {}
@@ -200,7 +193,7 @@ def get_context(sid, lang):
         if not c.stateful:
             continue
         try:
-            context.update(c.get_context(sess))
+            context.update(c.get_context(session))
         except Exception as ex:
             logger.error("Get context error, {}".format(ex))
             logger.error(traceback.format_exc())
@@ -229,129 +222,35 @@ def update_config(**kwargs):
     else:
         return False, "No configuration is updated"
 
-def preprocessing(question, lang, session):
+def preprocessing(question, lang):
     question = question.lower().strip()
     question = ' '.join(question.split())  # remove consecutive spaces
     question = question.replace('sofia', 'sophia')
-
-    reduction = get_character('reduction')
-    if reduction is not None:
-        response = reduction.respond(question, lang, session, query=True, request_id=request_id)
-        reducted_text = response.get('text')
-        if reducted_text:
-            question = reducted_text
-
     return question
 
-def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs):
-    sess = session_manager.get_session(sid)
-    if sess is None:
+def _ask_characters(characters, request):
+    session = session_manager.get_session(request.sid)
+    if session is None:
         return
 
     used_charaters = []
-    data = sess.session_context
+    data = session.session_context
     user = getattr(data, 'user')
     botname = getattr(data, 'botname')
-    weights = get_weights(characters, sess)
+    weights = get_weights(characters, session)
     weighted_characters = zip(characters, weights)
     weighted_characters = [wc for wc in weighted_characters if wc[1]>0]
     logger.info("Weights {}".format(weights))
 
-    _question = preprocessing(question, lang, sess)
-    response = {}
+    _question = preprocessing(request.question, request.lang)
+
+    response = Response()
+
     hit_character = None
     answer = None
     cross_trace = []
     cached_responses = defaultdict(list)
-
-    control = get_character('control')
-    if control is not None:
-        _response = control.respond(_question, lang, sess, query, request_id)
-        _answer = _response.get('text')
-        if _answer == '[tell me more]':
-            cross_trace.append((control.id, 'control', _response.get('trace') or 'No trace'))
-            if sess.last_used_character:
-                if sess.cache.that_question is None:
-                    sess.cache.that_question = sess.cache.last_question
-                context = sess.last_used_character.get_context(sess)
-                if 'continue' in context and context.get('continue'):
-                    _answer, res = shorten(context.get('continue'), 140)
-                    response['text'] = answer = _answer
-                    response['botid'] = sess.last_used_character.id
-                    response['botname'] = sess.last_used_character.name
-                    sess.last_used_character.set_context(sess, {'continue': res})
-                    hit_character = sess.last_used_character
-                    cross_trace.append((sess.last_used_character.id, 'continuation', 'Non-empty'))
-                else:
-                    _question = sess.cache.that_question.lower().strip()
-                    cross_trace.append((sess.last_used_character.id, 'continuation', 'Empty'))
-        elif _answer.startswith('[weather]'):
-            template = _answer.replace('[weather]', '')
-            cross_trace.append((control.id, 'control', _response.get('trace') or 'No trace'))
-            context = control.get_context(sess)
-            if context:
-                location = context.get('querylocation')
-                prop = parse_weather(get_weather(location))
-                if prop:
-                    try:
-                        _answer = template.format(location=location, **prop)
-                        if _answer:
-                            answer = _answer
-                            response['text'] = _answer
-                            response['botid'] = control.id
-                            response['botname'] = control.name
-                    except Exception as ex:
-                        cross_trace.append((control.id, 'control', 'No answer'))
-                        logger.error(ex)
-                        logger.error(traceback.format_exc())
-                else:
-                    cross_trace.append((control.id, 'control', 'No answer'))
-        elif _answer in OPERATOR_MAP.keys():
-            opt = OPERATOR_MAP[_answer]
-            cross_trace.append((control.id, 'control', _response.get('trace') or 'No trace'))
-            context = control.get_context(sess)
-            if context:
-                item1 = context.get('item1')
-                item2 = context.get('item2')
-                item1 = words2num(item1)
-                item2 = words2num(item2)
-                if item1 is not None and item2 is not None:
-                    try:
-                        result = opt(item1, item2)
-                        img = math.modf(result)[0]
-                        if img < 1e-6:
-                            result_str = '{:d}'.format(int(result))
-                        else:
-                            result_str = 'about {:.4f}'.format(result)
-                        if result > 1e20:
-                            answer = "The number is too big. You should use a calculator."
-                        else:
-                            answer = "The answer is {result}".format(result=result_str)
-                    except ZeroDivisionError:
-                        answer = "Oh, the answer is not a number"
-                    except Exception as ex:
-                        logger.error(ex)
-                        logger.error(traceback.format_exc())
-                        answer = "Sorry, something goes wrong. I can't calculate it."
-                    response['text'] = answer
-                    response['botid'] = control.id
-                    response['botname'] = control.name
-                else:
-                    cross_trace.append((control.id, 'control', 'No answer'))
-        else:
-            if _answer and not re.findall(r'\[.*\].*', _answer):
-                cross_trace.append((control.id, 'control', _response.get('trace') or 'No trace'))
-                hit_character = control
-                answer = _answer
-                response = _response
-            else:
-                cross_trace.append((control.id, 'control', 'No answer'))
-            for c in characters:
-                try:
-                    c.remove_context(sess, 'continue')
-                except NotImplementedError:
-                    pass
-            sess.cache.that_question = None
+    return
 
     def _ask_character(stage, character, weight, good_match=False, reuse=False):
         logger.info("Asking character {} \"{}\" in stage {}".format(
@@ -375,7 +274,7 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
                 character.id, stage))
             return False, None, None
 
-        response = character.respond(_question, lang, sess, query, request_id)
+        response = character.respond(_question, lang, session, query, request_id)
         answer = str_cleanup(response.get('text', ''))
         trace = response.get('trace')
 
@@ -438,11 +337,11 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
     # If the last input is a question, then try to use the same tier to
     # answer it.
     if not answer:
-        if sess.open_character in characters:
+        if session.open_character in characters:
             answered, _answer, _response = _ask_character(
-                'question', sess.open_character, 1, good_match=True)
+                'question', session.open_character, 1, good_match=True)
             if answered:
-                hit_character = sess.open_character
+                hit_character = session.open_character
                 answer = _answer
                 response = _response
 
@@ -470,9 +369,9 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
 
     # Check the last used character
     if not answer:
-        if sess.last_used_character and sess.last_used_character.dynamic_level:
+        if session.last_used_character and session.last_used_character.dynamic_level:
             for c, weight in weighted_characters:
-                if sess.last_used_character.id == c.id:
+                if session.last_used_character.id == c.id:
                     answered, _answer, _response = _ask_character(
                         'last used', c, weight)
                     if answered:
@@ -533,16 +432,16 @@ def _ask_characters(characters, question, lang, sid, query, request_id, **kwargs
     if not query and hit_character is not None:
         logger.info("Hit by %s", hit_character)
         response['AnsweredBy'] = hit_character.id
-        sess.last_used_character = hit_character
-        hit_character.use(sess, response)
+        session.last_used_character = hit_character
+        hit_character.use(session, response)
 
         if is_question(answer.lower().strip()):
             if hit_character.dynamic_level:
-                sess.open_character = hit_character
+                session.open_character = hit_character
                 logger.info("Set open dialog character {}".format(
                             hit_character.id))
         else:
-            sess.open_character = None
+            session.open_character = None
 
     response['ModQuestion'] = _question
     response['trace'] = cross_trace
@@ -554,14 +453,14 @@ def is_question(question):
     return question.endswith('?') or question.endswith('？')
 
 def get_responding_characters(lang, sid):
-    sess = session_manager.get_session(sid)
-    if sess is None:
+    session = session_manager.get_session(sid)
+    if session is None:
         return []
-    if not hasattr(sess.session_context, 'botname'):
+    if not hasattr(session.session_context, 'botname'):
         return []
 
-    botname = sess.session_context.botname
-    user = sess.session_context.user
+    botname = session.session_context.botname
+    user = session.session_context.user
 
     # current character > local character with the same name > solr > generic
     responding_characters = get_characters_by_name(
@@ -584,12 +483,12 @@ def get_responding_characters(lang, sid):
 
 
 def rate_answer(sid, idx, rate):
-    sess = session_manager.get_session(sid)
-    if sess is None:
+    session = session_manager.get_session(sid)
+    if session is None:
         logger.error("Session doesn't exist")
         return False
     try:
-        return sess.rate(rate, idx)
+        return session.rate(rate, idx)
     except Exception as ex:
         logger.error("Rate error: {}".format(ex))
         return False
@@ -603,18 +502,18 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     response = {'text': '', 'emotion': '', 'botid': '', 'botname': ''}
     response['lang'] = lang
 
-    sess = session_manager.get_session(sid)
-    if sess is None:
+    session = session_manager.get_session(sid)
+    if session is None:
         return response, INVALID_SESSION
 
     if not question or not question.strip():
         return response, INVALID_QUESTION
 
-    botname = sess.session_context.botname
+    botname = session.session_context.botname
     if not botname:
         logger.error("No botname is specified")
-    user = sess.session_context.user
-    client_id = sess.session_context.client_id
+    user = session.session_context.user
+    client_id = session.session_context.client_id
     response['OriginalQuestion'] = question
 
     input_translated = False
@@ -643,12 +542,12 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         logger.warn("Session {} is reset by :reset".format(sid))
     for c in responding_characters:
         if c.is_command(question):
-            response.update(c.respond(question, lang, sess, query, request_id))
+            response.update(c.respond(question, lang, session, query, request_id))
             return response, SUCCESS
 
     response['yousaid'] = question
 
-    sess.set_characters(responding_characters)
+    session.set_characters(responding_characters)
     if RESET_SESSION_BY_HELLO and question:
         question_tokens = question.lower().strip().split()
         if 'hi' in question_tokens or 'hello' in question_tokens:
@@ -656,27 +555,35 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
             session_manager.reset_session(sid)
             logger.warn("Session {} is reset by greeting".format(sid))
     if question and question.lower().strip() in ["what's new"]:
-        sess.last_used_character = None
-        sess.open_character = None
+        session.last_used_character = None
+        session.open_character = None
         logger.info("Triggered new topic")
 
     logger.info("Responding characters {}".format(responding_characters))
+    
+    request = Request()
+    request.id = request_id
+    request.lang = lang
+    request.sid = sid
+    request.question = question
+
     if fallback_mode:
+        request.lang = FALLBACK_LANG
         _response = _ask_characters(
-            responding_characters, question, FALLBACK_LANG, sid, query, request_id, **kwargs)
+            responding_characters, request)
     else:
         _response = _ask_characters(
-            responding_characters, question, lang, sid, query, request_id, **kwargs)
+            responding_characters, request)
 
     #if not query:
         # Sync session data
-        #if sess.last_used_character is not None:
-        #    context = sess.last_used_character.get_context(sess)
+        #if session.last_used_character is not None:
+        #    context = session.last_used_character.get_context(session)
         #    for c in responding_characters:
-        #        if c.id == sess.last_used_character.id:
+        #        if c.id == session.last_used_character.id:
         #            continue
         #        try:
-        #            c.set_context(sess, context)
+        #            c.set_context(session, context)
         #        except NotImplementedError:
         #            pass
 
@@ -728,7 +635,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         record['TranslateInput'] = input_translated
         record['NormQuestion'] = norm2(response.get('OriginalQuestion'))
         record['NormAnswer'] = norm2(response.get('text'))
-        sess.add(record)
+        session.add(record)
         logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))
         response.update(record)
         response['Datetime'] = str(response['Datetime'])
@@ -740,12 +647,12 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         return response, NO_PATTERN_MATCH
 
 def said(sid, text):
-    sess = session_manager.get_session(sid)
-    if sess is None:
+    session = session_manager.get_session(sid)
+    if session is None:
         return False, "No session"
     control = get_character('control')
     if control is not None:
-        control.said(sess, text)
+        control.said(session, text)
         return True, "Done"
     return False, 'No control tier'
 

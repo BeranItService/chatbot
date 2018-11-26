@@ -49,7 +49,7 @@ def init_logging():
     os.environ['ROS_LOG_FILENAME'] = log_config_file
     os.environ['ROS_LOG_DIR'] = SERVER_LOG_DIR
 
-    config_file = os.environ['ROS_PYTHON_LOG_CONFIG_FILE']
+    config_file = os.environ.get('ROS_PYTHON_LOG_CONFIG_FILE')
     default_config_file = os.path.join(CWD, 'python_logging.conf')
     os.environ['ROS_LOG_FILENAME'] = log_config_file
     if config_file and os.path.isfile(config_file):

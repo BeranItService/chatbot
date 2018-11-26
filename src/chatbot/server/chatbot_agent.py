@@ -256,6 +256,11 @@ def _ask_character(stage, character, request, response):
                 response.add_response(character.id, tier_response)
                 if character.id == 'cs':
                     answered = True
+                if character.id == 'ddg':
+                    answered = True
+                    response.set_default_response(tier_response) # choose ddg if it has an answer
+                if tier_response.get('exact_match'):
+                    answered = True
         else:
             if not tier_response.get('bad'):
                 logger.info("{} has no good match".format(character.id))
@@ -274,6 +279,16 @@ def _ask_character(stage, character, request, response):
             response.add_trace((character.id, stage, 'No answer. Trace: {}'.format(trace)))
     return answered, tier_response
 
+def pickone(items, weights=None):
+    """pick one item from an array of items based on their weights"""
+    if not items:
+        return
+    if weights is None: 
+        weights = np.array([float(r['weight']) for r in items])
+    pweights = weights/sum(weights)
+    item = np.random.choice(items, p=pweights)
+    logger.info("Picked %s from cache by p=%s" % (item, pweights))
+    return item
 
 def _ask_characters(characters, request, response):
     session = session_manager.get_session(request.sid)
@@ -339,31 +354,38 @@ def _ask_characters(characters, request, response):
         if not response.answered or not c.lazy:
             answered, _response = _ask_character(
                 'loop', c, request, response)
+            print c.id, answered
             _response['weight'] = weight
             trace = _response.get('trace')
             if answered:
                 if random.random() < weight:
                     response.add_trace((c.id, 'loop', 'Trace: {}'.format(trace)))
-                    response.set_default_response(_response)
+                    response.add_default_response(_response)
                 else:
                     response.add_trace((c.id, 'loop', 'Pass through. Answer: {}, Weight: {}, Trace: {}'.format(_response.get('text'), weight, trace)))
                     logger.info("%s has answer but dismissed", c.id)
 
+    if not response.answered:
+        # pick one default response
+        default_response = pickone(response.get_default_responses())
+        if default_response:
+            response.set_default_response(default_response)
+
     if not response.answered and response.responses:
         cached_responses = response.responses
-        logger.info("Picking answer from cache %s" % cached_responses.keys())
-        weights = np.array([float(RESPONSE_TYPE_WEIGHTS.get(k, 0)) for k in cached_responses.keys()])
-        pweights = weights/sum(weights)
-        key = np.random.choice(cached_responses.keys(), p=pweights)
-        logger.info("Picked %s from cache by p=%s" % (key, pweights))
+        keys = cached_responses.keys()
+        logger.info("Picking answer from cache %s", keys)
+
+        weights = np.array([float(RESPONSE_TYPE_WEIGHTS.get(k, 0)) for k in keys])
+        key = pickone(keys, weights)
+
         candicate_responses = cached_responses.get(key)
-        weights = np.array([float(r['weight']) for r in candicate_responses])
-        pweights = weights/sum(weights)
-        tier_response = np.random.choice(candicate_responses, p=pweights)
-        response.set_default_response(tier_response)
-        response.add_trace(
-            (tier_response.get('botid'), key,
-            tier_response.get('trace') or 'No trace'))
+        picked_response = pickone(candicate_responses)
+        if picked_response:
+            response.set_default_response(picked_response)
+            response.add_trace(
+                (picked_response.get('botid'), key,
+                picked_response.get('trace') or 'No trace'))
 
     #if answer and re.match('.*{.*}.*', answer):
     #    logger.info("Template answer {}".format(answer))
@@ -529,7 +551,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
 
     _question = preprocessing(request.question, request.lang)
     request.question = _question
-
+    response['ModQuestion'] = _question
     response.Question = response.get('OriginalQuestion')
     response.Marker = kwargs.get('marker')
     response.RunId = kwargs.get('run_id')
@@ -564,7 +586,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
 
     record = OrderedDict()
     record['Datetime'] = dt.datetime.utcnow()
-    record['Question'] = response.get('OriginalQuestion')
+    record['Question'] = response.Question
     record['Rate'] = ''
     record['Lang'] = lang
     record['Location'] = LOCATION
@@ -573,44 +595,43 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     record['Revision'] = REVISION
     record['ClientId'] = client_id
     record['User'] = user
-    record['Marker'] = kwargs.get('marker')
+    record['Marker'] = response.Marker
     record['BotName'] = botname
-    record['RunId'] = kwargs.get('run_id')
+    record['RunId'] = response.RunId
 
     if response.answered:
-        #response['OriginalAnswer'] = response.get('text')
-        #if fallback_mode:
-        #    try:
-        #        answer = response.get('text')
-        #        output_translated, answer = do_translate(answer, lang)
-        #        response['text'] = answer
-        #    except Exception as ex:
-        #        logger.error(ex)
-        #        logger.error(traceback.format_exc())
-        #        response.ret = codes.TRANSLATE_ERROR
-        #        return response
+        answer = response.default_response.get('text')
+        response['OriginalAnswer'] = answer
+        response['AnsweredBy'] = response.default_response.get('botid')
+        if fallback_mode:
+            try:
+                output_translated, answer = do_translate(answer, lang)
+                response.default_response['text'] = answer
+            except Exception as ex:
+                logger.error(ex)
+                logger.error(traceback.format_exc())
+                response.ret = codes.TRANSLATE_ERROR
+                return response
 
-        #record['Answer'] = response.get('text')
-        #record['LineNO'] = response.get('lineno')
-        #record['OriginalAnswer'] = response.get('OriginalAnswer')
-        #record['TranslatedQuestion'] = question
-        #record['Topic'] = response.get('topic')
-        #record['ModQuestion'] = response.get('ModQuestion')
-        #record['Trace'] = response.get('trace')
-        #record['AnsweredBy'] = response.get('AnsweredBy')
-        #record['TranslateOutput'] = output_translated
-        #record['TranslateInput'] = input_translated
-        #record['NormQuestion'] = norm2(response.get('OriginalQuestion'))
-        #record['NormAnswer'] = norm2(response.get('text'))
-        #session.add(record)
+        record['Answer'] = response.default_response.get('text')
+        record['LineNO'] = response.default_response.get('lineno')
+        record['OriginalAnswer'] = response.get('OriginalAnswer')
+        record['TranslatedQuestion'] = question
+        record['Topic'] = response.default_response.get('topic')
+        record['ModQuestion'] = response.get('ModQuestion')
+        record['Trace'] = response.get('trace')
+        record['AnsweredBy'] = response.get('AnsweredBy')
+        record['TranslateOutput'] = output_translated
+        record['TranslateInput'] = input_translated
+        record['NormQuestion'] = norm2(response.get('OriginalQuestion'))
+        record['NormAnswer'] = norm2(response.default_response.get('text'))
+        session.add(record)
         #logger.info("Ask {}, response {}".format(response['OriginalQuestion'], response))
         #response.update(record)
         #response['Datetime'] = str(response['Datetime'])
         return response
     else:
         logger.error("No pattern match")
-        response.update(record)
-        response['Datetime'] = str(response['Datetime'])
         response.ret = codes.NO_PATTERN_MATCH
         return response
 

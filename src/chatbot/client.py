@@ -192,8 +192,9 @@ class Client(cmd.Cmd, object):
     def process_response(self, response):
         if response is not None:
             tier_response = response['default_response']
-            if tier_response:
-                answer = tier_response['text']
+            if not tier_response:
+                return
+            answer = tier_response['text']
             if not self.ignore_indicator:
                 self.process_indicator(answer)
             tier_response['text'] = norm(answer)

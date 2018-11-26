@@ -6,16 +6,25 @@ class Response(Bunch):
         self.responses = {}
         self.trace = []
         self.default_response = None
+        self._default_category = '_DEFAULT_'
 
-    def add_response(self, stage, response):
-        if stage in self.responses:
-            self.responses[stage].append(response)
+    def add_response(self, category, response):
+        if category in self.responses:
+            self.responses[category].append(response)
         else:
-            self.responses[stage] = [response]
+            self.responses[category] = [response]
+
+    def get_responses(self, category):
+        return self.responses.get(category)
+
+    def get_default_responses(self):
+        return self.get_responses(self._default_category)
+
+    def add_default_response(self, response):
+        self.add_response(self._default_category, response)
 
     def set_default_response(self, response):
         self.default_response = response
-        self.add_response('_DEFAULT_', response)
 
     def add_trace(self, trace):
         self.trace.append(trace)

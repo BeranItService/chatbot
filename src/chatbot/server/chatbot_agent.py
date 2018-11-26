@@ -280,7 +280,6 @@ def _ask_characters(characters, request, response):
     if session is None:
         return
 
-    used_charaters = []
     data = session.session_context
     user = getattr(data, 'user')
     botname = getattr(data, 'botname')
@@ -337,9 +336,10 @@ def _ask_characters(characters, request, response):
     wcs = weighted_characters[:]
     while wcs:
         c, weight = wcs.pop(0)
-        if not response.answered:
+        if not response.answered or not c.lazy:
             answered, _response = _ask_character(
                 'loop', c, request, response)
+            _response['weight'] = weight
             trace = _response.get('trace')
             if answered:
                 if random.random() < weight:
@@ -348,9 +348,6 @@ def _ask_characters(characters, request, response):
                 else:
                     response.add_trace((c.id, 'loop', 'Pass through. Answer: {}, Weight: {}, Trace: {}'.format(_response.get('text'), weight, trace)))
                     logger.info("%s has answer but dismissed", c.id)
-        elif not c.lazy:
-            answered, _response = _ask_character(
-                'loop', c, request, response)
 
     if not response.answered and response.responses:
         cached_responses = response.responses
@@ -359,7 +356,10 @@ def _ask_characters(characters, request, response):
         pweights = weights/sum(weights)
         key = np.random.choice(cached_responses.keys(), p=pweights)
         logger.info("Picked %s from cache by p=%s" % (key, pweights))
-        tier_response = cached_responses.get(key)[0]
+        candicate_responses = cached_responses.get(key)
+        weights = np.array([float(r['weight']) for r in candicate_responses])
+        pweights = weights/sum(weights)
+        tier_response = np.random.choice(candicate_responses, p=pweights)
         response.set_default_response(tier_response)
         response.add_trace(
             (tier_response.get('botid'), key,

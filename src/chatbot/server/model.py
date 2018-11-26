@@ -27,6 +27,7 @@ class Request(bunch.Bunch):
         self.lang = None
         self.sid = None
         self.id = None
+        self.query = None
 
     def __str__(self):
         return self.toJSON()+'\n'

@@ -101,12 +101,14 @@ def _chat():
     request_id = request.headers.get('X-Request-Id')
     marker = data.get('marker', 'default')
     run_id = data.get('run_id', '')
-    response, ret = ask(
-        question, lang, session, query,
-        request_id=request_id, marker=marker, run_id=run_id)
-    return Response(json_encode({'ret': ret, 'response': response}),
-                    mimetype="application/json")
-
+    try:
+        response = ask(
+            question, lang, session, query,
+            request_id=request_id, marker=marker, run_id=run_id)
+    except Exception as ex:
+        logger.exception(ex)
+        raise ex
+    return Response(response.toJSON(), mimetype="application/json")
 
 @app.route(ROOT + '/batch_chat', methods=['POST'])
 def _batch_chat():

@@ -152,17 +152,16 @@ class Client(cmd.Cmd, object):
             'X-Request-ID': request_id or str(uuid.uuid1())
         }
         r = requests.get('{}/chat'.format(self.root_url), params=params, headers=headers)
-        ret = r.json().get('ret')
         if r.status_code != 200:
             self.stdout.write("Request error: {}\n".format(r.status_code))
 
+        ret = r.json().get('ret')
         if ret != 0:
             self.stdout.write("QA error: error code {}, botname {}, question {}, lang {}\n".format(
                 ret, self.botname, question, self.lang))
             raise Exception("QA error: {}({})".format(ERRORS.get(ret, 'Unknown'), ret))
 
-        response = {'text': '', 'emotion': '', 'botid': '', 'botname': ''}
-        response.update(r.json().get('response'))
+        response = r.json()
 
         if question == '[loopback]':
             self.timer = threading.Timer(self.timeout, self.ask, (question, ))
@@ -170,7 +169,10 @@ class Client(cmd.Cmd, object):
             logger.info("Start {} timer with timeout {}".format(
                 question, self.timeout))
 
-        self.process_response(response)
+        try:
+            self.process_response(response)
+        except Exception as ex:
+            logger.exception(ex)
         return response
 
     def list_chatbot(self):
@@ -189,15 +191,17 @@ class Client(cmd.Cmd, object):
 
     def process_response(self, response):
         if response is not None:
-            answer = response.get('text')
+            tier_response = response['default_response']
+            if tier_response:
+                answer = tier_response['text']
             if not self.ignore_indicator:
                 self.process_indicator(answer)
-            response['text'] = norm(answer)
-            self.last_response = response
+            tier_response['text'] = norm(answer)
+            self.last_response = tier_response
             if self.response_listener is None:
                 self.stdout.write('{}[by {}]: {}\n'.format(
-                    self.botname, response.get('botid'),
-                    response.get('text')))
+                    self.botname, tier_response.get('botid'),
+                    tier_response.get('text')))
             else:
                 try:
                     threading.Timer(0, self.response_listener.on_response, (self.session, response)).start()

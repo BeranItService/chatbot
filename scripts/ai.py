@@ -405,16 +405,20 @@ class Chatbot():
             logger.error("Session id doesn't match")
             return
 
-        logger.info("Get response {}".format(response))
+        tier_response = response['default_response']
+        if not tier_response:
+            return
+
+        logger.info("Get response {}".format(tier_response))
 
         #for k, v in response.iteritems():
         #    rospy.set_param('{}/response/{}'.format(self.node_name, k), v)
 
-        text = response.get('text')
-        emotion = response.get('emotion')
-        lang = response.get('lang', 'en-US')
+        text = tier_response.get('text')
+        emotion = tier_response.get('emotion')
+        lang = tier_response.get('lang', 'en-US')
 
-        orig_text = response.get('orig_text')
+        orig_text = tier_response.get('orig_text')
         if orig_text:
             try:
                 self.handle_control(orig_text)
@@ -484,7 +488,7 @@ class Chatbot():
         if not self.mute:
             self._blink_publisher.publish('chat_saying')
             log_data = {}
-            log_data.update(response)
+            log_data.update(tier_response)
             log_data['performance_report'] = True
             logger.warn('Chatbot response: %s', text, extra={'data': log_data})
             self._response_publisher.publish(TTS(text=text, lang=lang))

@@ -35,7 +35,6 @@ IP = dyn_properties.get('ip')
 
 from session import ChatSessionManager
 session_manager = ChatSessionManager()
-DISABLE_QUIBBLE = True
 FALLBACK_LANG = 'en-US'
 
 from chatbot.utils import (shorten, str_cleanup, get_weather, parse_weather,
@@ -53,8 +52,6 @@ RESPONSE_TYPE_WEIGHTS = {
     'nogoodmatch': 50,
     'quibble': 40,
     'gambit': 50,
-    'repeat': 0,
-    'pickup': 0,
     'es': 20,
     'markov': 5,
 }
@@ -231,6 +228,53 @@ def preprocessing(question, lang):
     question = question.replace('sofia', 'sophia')
     return question
 
+def _ask_character(stage, character, request, response):
+    logger.info("Asking character {} \"{}\" in stage {}".format(
+        character.id, request.question, stage))
+
+    session = session_manager.get_session(request.sid)
+    tier_response = character.respond(request.question, request.lang, session, request.query, request.id)
+    answer = str_cleanup(tier_response.get('text', ''))
+    answered = False
+    trace = tier_response.get('trace')
+
+    if answer:
+        if tier_response.get('exact_match') or tier_response.get('ok_match'):
+            if tier_response.get('gambit'):
+                if random.random() < 0.3:
+                    logger.info("{} has gambit but dismissed".format(character.id))
+                    response.add_trace((character.id, stage, 'Ignore gambit answer. Answer: {}, Trace: {}'.format(answer, trace)))
+                    response.add_response('gambit', tier_response)
+                else:
+                    logger.info("{} has gambit".format(character.id))
+                    answered = True
+            elif tier_response.get('quibble'):
+                response.add_trace((character.id, stage, 'Quibble answer. Answer: {}, Trace: {}'.format(answer, trace)))
+                response.add_response('quibble', tier_response)
+            else:
+                logger.info("{} has good match".format(character.id))
+                response.add_response(character.id, tier_response)
+                if character.id == 'cs':
+                    answered = True
+        else:
+            if not tier_response.get('bad'):
+                logger.info("{} has no good match".format(character.id))
+                response.add_trace((character.id, stage, 'No good match. Answer: {}, Trace: {}'.format(answer, trace)))
+                response.add_response('nogoodmatch', tier_response)
+            else:
+                response.add_trace((character.id, stage, 'Bad answer. Answer: {}, Trace: {}'.format(answer, trace)))
+                response.add_response('bad', tier_response)
+
+    else:
+        if tier_response.get('repeat'):
+            answer = tier_response.get('repeat')
+            response.add_trace((character.id, stage, 'Repetitive answer. Answer: {}, Trace: {}'.format(answer, trace)))
+        else:
+            logger.info("{} has no answer".format(character.id))
+            response.add_trace((character.id, stage, 'No answer. Trace: {}'.format(trace)))
+    return answered, tier_response
+
+
 def _ask_characters(characters, request, response):
     session = session_manager.get_session(request.sid)
     if session is None:
@@ -241,167 +285,84 @@ def _ask_characters(characters, request, response):
     user = getattr(data, 'user')
     botname = getattr(data, 'botname')
     weights = get_weights(characters, session)
-    weighted_characters = zip(characters, weights)
-    weighted_characters = [wc for wc in weighted_characters if wc[1]>0]
     logger.info("Weights {}".format(weights))
+    weighted_characters = zip(characters, weights)
 
-    _question = preprocessing(request.question, request.lang)
-    response.ModQuestion = _question
-
-    hit_character = None
-    answer = None
-    cached_responses = defaultdict(list)
-
-    def _ask_character(stage, character, weight, good_match=False, reuse=False):
-        logger.info("Asking character {} \"{}\" in stage {}".format(
-            character.id, _question, stage))
-
-        if not reuse and character.id in used_charaters:
-            response.add_trace((character.id, stage, 'Skip used tier'))
-            return False, None, None
-
-        if character.id in used_charaters and character.type == TYPE_CS:
-            response.add_trace((character.id, stage, 'Skip CS tier'))
-            return False, None, None
-
-        used_charaters.append(character.id)
-        answer = None
-        answered = False
-
+    for c, weight in weighted_characters:
         if weight == 0:
-            response.add_trace((character.id, stage, 'Disabled'))
-            logger.warn("Character \"{}\" in stage {} is disabled".format(
-                character.id, stage))
-            return False, None, None
+            response.add_trace((c.id, 'init', 'Disabled'))
+            logger.warn("Character \"%s\" is disabled", c.id)
+    weighted_characters = [wc for wc in weighted_characters if wc[1]>0]
 
-        tier_response = character.respond(_question, request.lang, session, request.query, request.id)
-        answer = str_cleanup(tier_response.get('text', ''))
-        trace = tier_response.get('trace')
-
-        if answer:
-            if 'pickup' in character.id:
-                cached_responses['pickup'].append((tier_response, answer, character))
-                response.add_response('pickup', tier_response)
-                return False, None, None
-            if good_match:
-                if tier_response.get('exact_match') or tier_response.get('ok_match'):
-                    if tier_response.get('gambit'):
-                        if random.random() < 0.3:
-                            logger.info("{} has gambit but dismissed".format(character.id))
-                            response.add_trace((character.id, stage, 'Ignore gambit answer. Answer: {}, Trace: {}'.format(answer, trace)))
-                            cached_responses['gambit'].append((tier_response, answer, character))
-                            response.add_response('gambit', tier_response)
-                        else:
-                            logger.info("{} has gambit".format(character.id))
-                            answered = True
-                    else:
-                        logger.info("{} has good match".format(character.id))
-                        answered = True
-                else:
-                    if not tier_response.get('bad'):
-                        logger.info("{} has no good match".format(character.id))
-                        response.add_trace((character.id, stage, 'No good match. Answer: {}, Trace: {}'.format(answer, trace)))
-                        cached_responses['nogoodmatch'].append((tier_response, answer, character))
-                        response.add_response('nogoodmatch', tier_response)
-            elif tier_response.get('bad'):
-                response.add_trace((character.id, stage, 'Bad answer. Answer: {}, Trace: {}'.format(answer, trace)))
-                cached_responses['bad'].append((tier_response, answer, character))
-                response.add_response('bad', tier_response)
-            elif DISABLE_QUIBBLE and tier_response.get('quibble'):
-                response.add_trace((character.id, stage, 'Quibble answer. Answer: {}, Trace: {}'.format(answer, trace)))
-                cached_responses['quibble'].append((tier_response, answer, character))
-                response.add_response('quibble', tier_response)
-            else:
-                answered = True
-            if answered:
-                if random.random() < weight:
-                    response.add_trace((character.id, stage, 'Trace: {}'.format(trace)))
-                else:
-                    answered = False
-                    response.add_trace((character.id, stage, 'Pass through. Answer: {}, Weight: {}, Trace: {}'.format(answer, weight, trace)))
-                    logger.info("{} has answer but dismissed".format(character.id))
-                    if character.id == 'markov':
-                        cached_responses['markov'].append((tier_response, answer, character))
-                        response.add_response('markov', tier_response)
-                    elif character.id == 'es':
-                        if tier_response.get('exact_match') or tier_response.get('ok_match'):
-                            cached_responses['es'].append((tier_response, answer, character))
-                            response.add_response('es', tier_response)
-                        else:
-                            cached_responses['nogoodmatch'].append((tier_response, answer, character))
-                            response.add_response('nogoodmatch', tier_response)
-                    else:
-                        cached_responses['pass'].append((tier_response, answer, character))
-                        response.add_response('pass', tier_response)
-        else:
-            if tier_response.get('repeat'):
-                answer = tier_response.get('repeat')
-                response.add_trace((character.id, stage, 'Repetitive answer. Answer: {}, Trace: {}'.format(answer, trace)))
-                cached_responses['repeat'].append((tier_response, answer, character))
-                response.add_response('repeat', tier_response)
-            else:
-                logger.info("{} has no answer".format(character.id))
-                response.add_trace((character.id, stage, 'No answer. Trace: {}'.format(trace)))
-        return answered, answer, tier_response
 
     # If the last input is a question, then try to use the same tier to
     # answer it.
-    if not response.answered:
-        if session.open_character in characters:
-            answered, _answer, _response = _ask_character(
-                'question', session.open_character, 1, good_match=True)
-            if answered:
-                response.set_default_response(_response)
+    #if not response.answered:
+    #    if session.open_character in characters:
+    #        answered, _answer, _response = _ask_character(
+    #            'question', session.open_character, request, response)
+    #        if answered:
+    #            response.set_default_response(_response)
 
     # Try the first tier to see if there is good match
-    if not response.answered:
-        c, weight = weighted_characters[0]
-        answered, _answer, _response = _ask_character(
-            'priority', c, weight, good_match=True)
-        if answered:
-            response.set_default_response(_response)
+    #if not response.answered:
+    #    c, weight = weighted_characters[0]
+    #    answered, _answer, _response = _ask_character(
+    #        'priority', c, weight, good_match=True)
+    #    if answered:
+    #        response.set_default_response(_response)
 
     # Select tier that is designed to be proper to answer the question
-    if not response.answered:
-        for c, weight in weighted_characters:
-            if c.is_favorite(_question):
-                answered, _answer, _response = _ask_character(
-                    'favorite', c, 1)
-                if answered:
-                    response.set_default_response(_response)
-                    break
+    #if not response.answered:
+    #    for c, weight in weighted_characters:
+    #        if c.is_favorite(_question):
+    #            answered, _answer, _response = _ask_character(
+    #                'favorite', c, request, response)
+    #            if answered:
+    #                response.set_default_response(_response)
+    #                break
 
     # Check the last used character
-    if not response.answered:
-        if session.last_used_character and session.last_used_character.dynamic_level:
-            for c, weight in weighted_characters:
-                if session.last_used_character.id == c.id:
-                    answered, _answer, _response = _ask_character(
-                        'last used', c, weight)
-                    if answered:
-                        response.set_default_response(_response)
-                    break
+    #if not response.answered:
+    #    if session.last_used_character and session.last_used_character.dynamic_level:
+    #        for c, weight in weighted_characters:
+    #            if session.last_used_character.id == c.id:
+    #                answered, _answer, _response = _ask_character(
+    #                    'last used', c, weight)
+    #                if answered:
+    #                    response.set_default_response(_response)
+    #                break
 
     # Check the loop
-    if not response.answered:
-        for c, weight in weighted_characters:
-            answered, _answer, _response = _ask_character(
-                'loop', c, weight, reuse=True)
+    wcs = weighted_characters[:]
+    while wcs:
+        c, weight = wcs.pop(0)
+        if not response.answered:
+            answered, _response = _ask_character(
+                'loop', c, request, response)
+            trace = _response.get('trace')
             if answered:
-                response.set_default_response(_response)
-                break
+                if random.random() < weight:
+                    response.add_trace((c.id, 'loop', 'Trace: {}'.format(trace)))
+                    response.set_default_response(_response)
+                else:
+                    response.add_trace((c.id, 'loop', 'Pass through. Answer: {}, Weight: {}, Trace: {}'.format(_response.get('text'), weight, trace)))
+                    logger.info("%s has answer but dismissed", c.id)
+        elif not c.lazy:
+            answered, _response = _ask_character(
+                'loop', c, request, response)
 
-    if not response.answered:
+    if not response.answered and response.responses:
+        cached_responses = response.responses
         logger.info("Picking answer from cache %s" % cached_responses.keys())
         weights = np.array([float(RESPONSE_TYPE_WEIGHTS.get(k, 0)) for k in cached_responses.keys()])
         pweights = weights/sum(weights)
         key = np.random.choice(cached_responses.keys(), p=pweights)
         logger.info("Picked %s from cache by p=%s" % (key, pweights))
-        tier_response, answer, hit_character = cached_responses.get(key)[0]
-        tier_response['text'] = answer
+        tier_response = cached_responses.get(key)[0]
         response.set_default_response(tier_response)
         response.add_trace(
-            (hit_character.id, key,
+            (tier_response.get('botid'), key,
             tier_response.get('trace') or 'No trace'))
 
     #if answer and re.match('.*{.*}.*', answer):
@@ -557,18 +518,7 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     response['yousaid'] = question
 
     session.set_characters(responding_characters)
-    if RESET_SESSION_BY_HELLO and question:
-        question_tokens = question.lower().strip().split()
-        if 'hi' in question_tokens or 'hello' in question_tokens:
-            session_manager.dump(sid)
-            session_manager.reset_session(sid)
-            logger.warn("Session {} is reset by greeting".format(sid))
-    if question and question.lower().strip() in ["what's new"]:
-        session.last_used_character = None
-        session.open_character = None
-        logger.info("Triggered new topic")
-
-    logger.info("Responding characters {}".format(responding_characters))
+    logger.info("Responding characters %s", responding_characters)
     
     request = Request()
     request.id = request_id
@@ -576,6 +526,9 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
     request.sid = sid
     request.question = question
     request.query = query
+
+    _question = preprocessing(request.question, request.lang)
+    request.question = _question
 
     response.Question = response.get('OriginalQuestion')
     response.Marker = kwargs.get('marker')

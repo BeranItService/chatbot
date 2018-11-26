@@ -42,6 +42,7 @@ class Character(object):
         self.logger = logging.getLogger('hr.chatbot.character.{}'.format(id))
         self.type = TYPE_DEFAULT
         self.stateful = False
+        self.lazy = False # If False, t will be called regardless the question is already answered
 
     def get_properties(self):
         return self.properties

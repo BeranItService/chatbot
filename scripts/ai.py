@@ -341,7 +341,7 @@ class Chatbot():
         if self.client.last_response and self.client.last_response_time:
             request_id = self.client.last_response.get('RequestId')
             elapse = dt.datetime.utcnow() - self.client.last_response_time
-            if elapse.total_seconds() < 10: # don't record request id for late coming msg
+            if elapse.total_seconds() > 10: # don't record request id for late coming msg
                 request_id = ''
             try:
                 self.write_response(request_id, msg)

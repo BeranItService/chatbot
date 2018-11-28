@@ -28,6 +28,8 @@ logger = logging.getLogger('hr.chatbot.ai')
 HR_CHATBOT_AUTHKEY = os.environ.get('HR_CHATBOT_AUTHKEY', 'AAAAB3NzaC')
 HR_CHATBOT_REQUEST_DIR = os.environ.get('HR_CHATBOT_REQUEST_DIR') or \
     os.path.expanduser('~/.hr/chatbot/requests')
+HR_CHATBOT_RESPONSE_DIR = os.environ.get('HR_CHATBOT_RESPONSE_DIR') or \
+    os.path.expanduser('~/.hr/chatbot/responses')
 ROBOT_NAME = os.environ.get('NAME', 'default')
 count = 0
 
@@ -89,12 +91,18 @@ class Chatbot():
             self.mongodb = MongoDB()
 
         self.node_name = rospy.get_name()
-        self.output_dir = os.path.join(HR_CHATBOT_REQUEST_DIR,
+        self.request_dir = os.path.join(HR_CHATBOT_REQUEST_DIR,
             dt.datetime.strftime(dt.datetime.utcnow(), '%Y%m%d'))
-        if not os.path.isdir(self.output_dir):
-            os.makedirs(self.output_dir)
+        if not os.path.isdir(self.request_dir):
+            os.makedirs(self.request_dir)
+        self.response_dir = os.path.join(HR_CHATBOT_RESPONSE_DIR,
+            dt.datetime.strftime(dt.datetime.utcnow(), '%Y%m%d'))
+        if not os.path.isdir(self.response_dir):
+            os.makedirs(self.response_dir)
         self.requests_fname = os.path.join(
-            self.output_dir, '{}.csv'.format(str(uuid.uuid1())))
+            self.request_dir, '{}.csv'.format(str(uuid.uuid1())))
+        self.responses_fname = os.path.join(
+            self.response_dir, '{}.csv'.format(str(uuid.uuid1())))
 
         self.input_stack = []
         self.timer = None
@@ -325,8 +333,15 @@ class Chatbot():
             self.ask([chat_message])
 
     def _response_callback(self, msg):
-        logger.warn("Chatbot response msg %s", msg)
+        logger.info("Get response msg %s", msg)
         self._response_publisher.publish(TTS(text=msg.text, lang=msg.lang))
+        if self.client.last_response and self.client.last_response_time:
+            request_id = self.client.last_response.get('RequestId')
+            elapse = dt.datetime.utcnow() - self.client.last_response_time
+            if elapse.total_seconds() < 5: # don't record for late coming msg
+                self.write_response(request_id, msg)
+        else:
+            logger.warn("No last response")
 
     def reset_timer(self):
         if self.timer is not None:
@@ -381,6 +396,24 @@ class Chatbot():
         df.to_csv(self.requests_fname, mode='a', index=False, header=False,
             columns=columns)
         logger.info("Write request to {}".format(self.requests_fname))
+
+    def write_response(self, request_id, msg):
+        columns = ['Datetime', 'RequestId', 'Answer', 'Lang', 'Label']
+        response = {
+            'Datetime':  dt.datetime.utcnow(),
+            'RequestId': request_id,
+            'Answer': msg.text,
+            'Lang': msg.lang,
+            'Label': msg.label,
+        }
+        df = pd.DataFrame(response, index=[0])
+        if not os.path.isfile(self.responses_fname):
+            with open(self.requests_fname, 'w') as f:
+                f.write(','.join(columns))
+                f.write('\n')
+        df.to_csv(self.responses_fname, mode='a', index=False, header=False,
+            columns=columns)
+        logger.warn("Write response to {}".format(self.responses_fname))
 
     def handle_control(self, response):
         t = Template(response)

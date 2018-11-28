@@ -4,6 +4,7 @@ import json
 import os
 import re
 import time
+import datetime as dt
 from functools import wraps, partial
 import logging
 import threading
@@ -77,6 +78,8 @@ class Client(cmd.Cmd, object):
         self.lang = 'en-US'
         self.session = None
         self.last_response = None
+        self.last_response_time = None
+        self.last_actual_response = None
         self.timer = None
         self.timeout = None
         self.weights = None
@@ -191,6 +194,8 @@ class Client(cmd.Cmd, object):
 
     def process_response(self, response):
         if response is not None:
+            self.last_response = response
+            self.last_response_time = dt.datetime.utcnow()
             tier_response = response['default_response']
             if not tier_response:
                 return
@@ -198,7 +203,7 @@ class Client(cmd.Cmd, object):
             if not self.ignore_indicator:
                 self.process_indicator(answer)
             tier_response['text'] = norm(answer)
-            self.last_response = tier_response
+            self.last_actual_response = tier_response
             if self.response_listener is None:
                 self.stdout.write('{}[by {}]: {}\n'.format(
                     self.botname, tier_response.get('botid'),
@@ -453,8 +458,8 @@ Reset the weight of tiers to their defaults.
         self.stdout.write('Ping the server\n')
 
     def do_trace(self, line):
-        if self.last_response:
-            trace = self.last_response.get('trace', None)
+        if self.last_actual_response:
+            trace = self.last_actual_response.get('trace', None)
             if trace:
                 if isinstance(trace, list):
                     trace = ['{}: {}: {}'.format(x, y, z) for x, y, z  in trace]

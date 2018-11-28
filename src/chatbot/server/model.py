@@ -1,5 +1,7 @@
 import bunch
 from codes import CODES
+import logging
+logger = logging.getLogger('hr.chatbot.server.model')
 
 RESPONSE_TYPE_WEIGHTS = {
     '_DEFAULT_': 100,
@@ -34,6 +36,7 @@ class Response(bunch.Bunch):
         self._default_category = '_DEFAULT_'
 
     def add_response(self, category, response):
+        logger.info("Add response %s %s", category, response)
         response['cweight'] = RESPONSE_TYPE_WEIGHTS.get(category, 0)
         if category in self.responses:
             self.responses[category].append(response)
@@ -47,6 +50,7 @@ class Response(bunch.Bunch):
         return self.get_responses(self._default_category)
 
     def add_default_response(self, response):
+        """The default response is the one preferred to use"""
         self.add_response(self._default_category, response)
 
     def set_default_response(self, response):

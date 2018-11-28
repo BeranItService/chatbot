@@ -217,23 +217,22 @@ def _ask_character(stage, character, request, response):
     answer = str_cleanup(tier_response.get('text', ''))
     answered = False
     trace = tier_response.get('trace')
-
+    category = ''
     if answer:
         if tier_response.get('exact_match') or tier_response.get('ok_match'):
             if tier_response.get('gambit'):
                 if random.random() < 0.3:
                     logger.info("{} has gambit but dismissed".format(character.id))
                     response.add_trace((character.id, stage, 'Ignore gambit answer. Answer: {}, Trace: {}'.format(answer, trace)))
-                    response.add_response('gambit', tier_response)
+                    category = 'gambit'
                 else:
                     logger.info("{} has gambit".format(character.id))
                     answered = True
             elif tier_response.get('quibble'):
                 response.add_trace((character.id, stage, 'Quibble answer. Answer: {}, Trace: {}'.format(answer, trace)))
-                response.add_response('quibble', tier_response)
+                category = 'quibble'
             else:
                 logger.info("{} has good match".format(character.id))
-                response.add_response(character.id, tier_response)
                 if character.id == 'cs':
                     answered = True
                 if character.id == 'ddg':
@@ -245,11 +244,14 @@ def _ask_character(stage, character, request, response):
             if not tier_response.get('bad'):
                 logger.info("{} has no good match".format(character.id))
                 response.add_trace((character.id, stage, 'No good match. Answer: {}, Trace: {}'.format(answer, trace)))
-                response.add_response('nogoodmatch', tier_response)
+                category = 'nogoodmatch'
             else:
                 response.add_trace((character.id, stage, 'Bad answer. Answer: {}, Trace: {}'.format(answer, trace)))
-                response.add_response('bad', tier_response)
-
+                category = 'bad'
+        if category:
+            response.add_response(category, tier_response)
+        else:
+            response.add_response(character.id, tier_response)
     else:
         if tier_response.get('repeat'):
             answer = tier_response.get('repeat')
@@ -334,7 +336,6 @@ def _ask_characters(characters, request, response):
         if not response.answered or not c.lazy:
             answered, _response = _ask_character(
                 'loop', c, request, response)
-            print c.id, answered
             _response['weight'] = weight
             trace = _response.get('trace')
             if answered:

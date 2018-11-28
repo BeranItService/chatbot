@@ -99,7 +99,7 @@ class Client(cmd.Cmd, object):
                     try:
                         return f(*args, **kwargs)
                     except Exception as ex:
-                        logger.error(ex)
+                        logger.exception(ex)
                         self = args[0]
                         self.start_session()
                         error = ex.message

@@ -339,7 +339,10 @@ class Chatbot():
             request_id = self.client.last_response.get('RequestId')
             elapse = dt.datetime.utcnow() - self.client.last_response_time
             if elapse.total_seconds() < 5: # don't record for late coming msg
-                self.write_response(request_id, msg)
+                try:
+                    self.write_response(request_id, msg)
+                except Exception as ex:
+                    logger.exception(ex)
         else:
             logger.warn("No last response")
 
@@ -398,7 +401,7 @@ class Chatbot():
         logger.info("Write request to {}".format(self.requests_fname))
 
     def write_response(self, request_id, msg):
-        columns = ['Datetime', 'RequestId', 'Answer', 'Lang', 'Label']
+        columns = ['Datetime', 'RequestId', 'Answer', 'Lang', 'Category', 'Tier', 'Label']
         response = {
             'Datetime':  dt.datetime.utcnow(),
             'RequestId': request_id,
@@ -406,9 +409,13 @@ class Chatbot():
             'Lang': msg.lang,
             'Label': msg.label,
         }
+        if msg.label:
+            botid, cat = msg.label.split('-')
+            response['Category'] = cat
+            response['Tier'] = botid
         df = pd.DataFrame(response, index=[0])
         if not os.path.isfile(self.responses_fname):
-            with open(self.requests_fname, 'w') as f:
+            with open(self.responses_fname, 'w') as f:
                 f.write(','.join(columns))
                 f.write('\n')
         df.to_csv(self.responses_fname, mode='a', index=False, header=False,
@@ -463,7 +470,7 @@ class Chatbot():
                 response_msg.lang = str(lang)
                 botid = r.get('botid')
                 cat = r.get('cat')
-                label = str('%s(%s)' % (botid, cat))
+                label = str('%s-%s' % (botid, cat))
                 response_msg.label = label
                 responses_msg.responses.append(response_msg)
                 logger.warn("Add response %s", response_msg)

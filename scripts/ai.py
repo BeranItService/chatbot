@@ -417,15 +417,23 @@ class Chatbot():
             responses_msg = ChatResponses()
             lang = response.get('Lang')
             responses = response.get('responses')
+            all_responses = []
             for cat, trs in responses.iteritems():
                 if cat == '_DEFAULT_': continue
                 for tr in trs:
-                    response_msg = ChatResponse()
-                    response_msg.text = str(tr.get('text'))
-                    response_msg.lang = str(lang)
-                    botid = tr.get('botid')
-                    response_msg.label = str('%s(%s)' % (botid, cat))
-                    responses_msg.responses.append(response_msg)
+                    tr['cat'] = cat
+                    all_responses.append(tr)
+            all_responses = sorted(all_responses, key=lambda x: x.get('cweight', 0))
+            for r in all_responses:
+                response_msg = ChatResponse()
+                response_msg.text = str(r.get('text'))
+                response_msg.lang = str(lang)
+                botid = r.get('botid')
+                cat = r.get('cat')
+                label = str('%s(%s)' % (botid, cat))
+                response_msg.label = label
+                responses_msg.responses.append(response_msg)
+                logger.warn("Add response %s", response_msg)
             self._responses_publisher.publish(responses_msg)
             logger.info("Pulished responses in hybrid mode")
             return

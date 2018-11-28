@@ -33,17 +33,8 @@ FALLBACK_LANG = 'en-US'
 from chatbot.utils import str_cleanup, do_translate, norm2
 from chatbot.server.character import TYPE_AIML, TYPE_CS
 from chatbot.server.template import render
-from model import Response, Request
+from model import Response, Request, RESPONSE_TYPE_WEIGHTS
 import codes
-
-RESPONSE_TYPE_WEIGHTS = {
-    'pass': 100,
-    'nogoodmatch': 50,
-    'quibble': 40,
-    'gambit': 50,
-    'es': 20,
-    'markov': 5,
-}
 
 def get_character(id, lang=None, ns=None):
     for character in CHARACTERS:

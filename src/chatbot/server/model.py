@@ -1,6 +1,17 @@
 import bunch
 from codes import CODES
 
+RESPONSE_TYPE_WEIGHTS = {
+    'cs': 100,
+    'ddg': 100,
+    'pass': 100,
+    'nogoodmatch': 50,
+    'quibble': 40,
+    'gambit': 50,
+    'es': 20,
+    'markov': 5,
+}
+
 class Request(bunch.Bunch):
 
     def __init__(self):
@@ -22,6 +33,7 @@ class Response(bunch.Bunch):
         self._default_category = '_DEFAULT_'
 
     def add_response(self, category, response):
+        response['weight'] = RESPONSE_TYPE_WEIGHTS.get(category, 0)
         if category in self.responses:
             self.responses[category].append(response)
         else:

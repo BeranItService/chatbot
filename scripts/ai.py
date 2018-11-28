@@ -120,7 +120,7 @@ class Chatbot():
         rospy.Subscriber('chatbot_response', ChatResponse, self._response_callback)
         # send to tts
         self._response_publisher = rospy.Publisher(
-            'chatbot_tts', TTS, queue_size=1)
+            'tts', TTS, queue_size=1)
 
         # send communication non-verbal blink message to behavior
         self._blink_publisher = rospy.Publisher(

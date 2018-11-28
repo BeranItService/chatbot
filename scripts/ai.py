@@ -334,15 +334,19 @@ class Chatbot():
 
     def _response_callback(self, msg):
         logger.info("Get response msg %s", msg)
-        self._response_publisher.publish(TTS(text=msg.text, lang=msg.lang))
+        text = msg.text
+        text = re.sub(r"""\[callback.*\]""", '', text)
+        logger.warn('Send to TTS "%s"', text)
+        self._response_publisher.publish(TTS(text=text, lang=msg.lang))
         if self.client.last_response and self.client.last_response_time:
             request_id = self.client.last_response.get('RequestId')
             elapse = dt.datetime.utcnow() - self.client.last_response_time
-            if elapse.total_seconds() < 5: # don't record for late coming msg
-                try:
-                    self.write_response(request_id, msg)
-                except Exception as ex:
-                    logger.exception(ex)
+            if elapse.total_seconds() < 10: # don't record request id for late coming msg
+                request_id = ''
+            try:
+                self.write_response(request_id, msg)
+            except Exception as ex:
+                logger.exception(ex)
         else:
             logger.warn("No last response")
 
@@ -409,8 +413,8 @@ class Chatbot():
             'Lang': msg.lang,
             'Label': msg.label,
         }
-        if msg.label:
-            botid, cat = msg.label.split('-')
+        if msg.label and '-' in msg.label:
+            botid, cat = msg.label.split('-', 2)
             response['Category'] = cat
             response['Tier'] = botid
         df = pd.DataFrame(response, index=[0])

@@ -1,25 +1,6 @@
 import bunch
 from codes import CODES
 
-class Response(bunch.Bunch):
-
-    def __init__(self):
-        self.text = ''
-        self.botid = ''
-        self.botname = ''
-        self.emotion = ''
-        self.err_code = 0
-        self.err_msg = ''
-
-    def __str__(self):
-        return self.toJSON()+'\n'
-
-    def set_return_code(self, code):
-        if code in CODES:
-            logger.warn("Code %s is not valid", code)
-        self.err_code = code
-        self.err_msg = CODES.get(code)
-
 class Request(bunch.Bunch):
 
     def __init__(self):
@@ -32,10 +13,48 @@ class Request(bunch.Bunch):
     def __str__(self):
         return self.toJSON()+'\n'
 
+class Response(bunch.Bunch):
+    def __init__(self):
+        self.ret = 0
+        self.responses = {}
+        self.trace = []
+        self.default_response = None
+        self._default_category = '_DEFAULT_'
+
+    def add_response(self, category, response):
+        if category in self.responses:
+            self.responses[category].append(response)
+        else:
+            self.responses[category] = [response]
+
+    def get_responses(self, category):
+        return self.responses.get(category)
+
+    def get_default_responses(self):
+        return self.get_responses(self._default_category)
+
+    def add_default_response(self, response):
+        self.add_response(self._default_category, response)
+
+    def set_default_response(self, response):
+        self.default_response = response
+
+    def add_trace(self, trace):
+        self.trace.append(trace)
+
+    @property
+    def answered(self):
+        return self.default_response is not None
+
+    def show(self):
+        print self.toYAML()
+
 if __name__ == '__main__':
     response = Response()
-    request = Request()
-    response.text = 'abc'
-    response.update({'x': 1})
-    response.req = request
-    print response
+    response.add_response('stage1', 'response')
+    response.add_response('stage1', 'response2')
+    response.add_response('stage2', 'response3')
+    response.set_default_response('response4')
+    print response.toJSON()
+    print response.toYAML()
+    print response.answered

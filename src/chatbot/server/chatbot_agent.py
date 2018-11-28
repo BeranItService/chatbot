@@ -5,6 +5,7 @@ import random
 import os
 import re
 import sys
+import math
 import numpy as np
 import datetime as dt
 reload(sys)
@@ -15,14 +16,6 @@ from collections import defaultdict, OrderedDict
 from threading import RLock
 sync = RLock()
 
-import codes
-
-SUCCESS = 0
-WRONG_CHARACTER_NAME = 1
-NO_PATTERN_MATCH = 2
-INVALID_SESSION = 3
-INVALID_QUESTION = 4
-TRANSLATE_ERROR = 5
 
 logger = logging.getLogger('hr.chatbot.server.chatbot_agent')
 
@@ -37,15 +30,11 @@ from session import ChatSessionManager
 session_manager = ChatSessionManager()
 FALLBACK_LANG = 'en-US'
 
-from chatbot.utils import (shorten, str_cleanup, get_weather, parse_weather,
-        do_translate, norm2)
-from chatbot.words2num import words2num
+from chatbot.utils import str_cleanup, do_translate, norm2
 from chatbot.server.character import TYPE_AIML, TYPE_CS
-from operator import add, sub, mul, truediv, pow
-import math
 from chatbot.server.template import render
 from model import Response, Request
-from response import Response
+import codes
 
 RESPONSE_TYPE_WEIGHTS = {
     'pass': 100,

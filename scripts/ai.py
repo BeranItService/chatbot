@@ -17,9 +17,10 @@ from chatbot.db import get_mongodb, MongoDB
 from chatbot.polarity import Polarity
 from dynamic_reconfigure.server import Server
 from hr_msgs.msg import Forget, ForgetAll, Assign, State
-from hr_msgs.msg import audiodata, SetGesture, Target, ChatMessage, TTS
-from jinja2 import Template
+from hr_msgs.msg import audiodata, SetGesture, Target
+from hr_msgs.msg import ChatMessage, TTS, ChatResponse, ChatResponses
 from std_msgs.msg import String
+from jinja2 import Template
 import dynamic_reconfigure
 import dynamic_reconfigure.client
 
@@ -80,6 +81,7 @@ class Chatbot():
         self.mute = False
         self.insert_behavior = False
         self.enable_face_recognition = False
+        self.hybrid_mode = False
         self._locker = Locker()
         try:
             self.mongodb = get_mongodb()
@@ -112,8 +114,13 @@ class Chatbot():
         self.tts_ctrl_pub = rospy.Publisher(
             'tts_control', String, queue_size=1)
 
+        self._responses_publisher = rospy.Publisher(
+            'chatbot_responses', ChatResponses, queue_size=1)
+        # receive user's choice
+        rospy.Subscriber('chatbot_response', ChatResponse, self._response_callback)
+        # send to tts
         self._response_publisher = rospy.Publisher(
-            'chatbot_responses', TTS, queue_size=1)
+            'chatbot_tts', TTS, queue_size=1)
 
         # send communication non-verbal blink message to behavior
         self._blink_publisher = rospy.Publisher(
@@ -282,9 +289,6 @@ class Chatbot():
             self.tts_ctrl_pub.publish("shutup")
             rospy.sleep(0.5)
             self._affect_publisher.publish(String('sad'))
-            if not self.mute:
-                self._response_publisher.publish(
-                    TTS(text='Okay', lang=chat_message.lang))
             return
         if self.speech:
             logger.warn("In speech, ignore the question")
@@ -319,6 +323,10 @@ class Chatbot():
             self.reset_timer()
         else:
             self.ask([chat_message])
+
+    def _response_callback(self, msg):
+        logger.warn("Chatbot response msg %s", msg)
+        self._response_publisher.publish(TTS(text=msg.text, lang=msg.lang))
 
     def reset_timer(self):
         if self.timer is not None:
@@ -403,6 +411,22 @@ class Chatbot():
 
         if sid != self.client.session:
             logger.error("Session id doesn't match")
+            return
+
+        if self.hybrid_mode:
+            responses_msg = ChatResponses()
+            lang = response.get('Lang')
+            responses = response.get('responses')
+            for cat, trs in responses.iteritems():
+                if cat == '_DEFAULT_': continue
+                for tr in trs:
+                    response_msg = ChatResponse()
+                    response_msg.text = str(tr.get('text'))
+                    response_msg.lang = str(lang)
+                    response_msg.label = str(cat)
+                    responses_msg.responses.append(response_msg)
+            self._responses_publisher.publish(responses_msg)
+            logger.info("Pulished responses in hybrid mode")
             return
 
         tier_response = response['default_response']
@@ -536,6 +560,7 @@ class Chatbot():
         self.enable = config.enable
         if not self.enable:
             self.client.cancel_timer()
+        self.hybrid_mode = config.hybrid_mode
         self.delay_response = config.delay_response
         self.delay_time = config.delay_time
         self.client.ignore_indicator = config.ignore_indicator

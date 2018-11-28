@@ -423,7 +423,8 @@ class Chatbot():
                     response_msg = ChatResponse()
                     response_msg.text = str(tr.get('text'))
                     response_msg.lang = str(lang)
-                    response_msg.label = str(cat)
+                    botid = tr.get('botid')
+                    response_msg.label = str('%s(%s)' % (botid, cat))
                     responses_msg.responses.append(response_msg)
             self._responses_publisher.publish(responses_msg)
             logger.info("Pulished responses in hybrid mode")
@@ -561,6 +562,8 @@ class Chatbot():
         if not self.enable:
             self.client.cancel_timer()
         self.hybrid_mode = config.hybrid_mode
+        if self.hybrid_mode:
+            logger.warn("Enabled hybrid mode")
         self.delay_response = config.delay_response
         self.delay_time = config.delay_time
         self.client.ignore_indicator = config.ignore_indicator

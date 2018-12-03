@@ -5,6 +5,7 @@ logger = logging.getLogger('hr.chatbot.server.model')
 
 RESPONSE_TYPE_WEIGHTS = {
     '_DEFAULT_': 100,
+    'sc': 100,
     'cs': 100,
     'ddg': 100,
     'pass': 100,

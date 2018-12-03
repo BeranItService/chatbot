@@ -233,6 +233,8 @@ def _ask_character(stage, character, request, response):
                 category = 'quibble'
             else:
                 logger.info("{} has good match".format(character.id))
+                if character.id == 'sc':
+                    answered = True
                 if character.id == 'cs':
                     answered = True
                 if character.id == 'ddg':

@@ -258,6 +258,8 @@ def _ask_character(stage, character, request, response):
         if tier_response.get('repeat'):
             answer = tier_response.get('repeat')
             response.add_trace((character.id, stage, 'Repetitive answer. Answer: {}, Trace: {}'.format(answer, trace)))
+            tier_response['text'] = answer
+            response.add_response('repeat', tier_response)
         else:
             logger.info("{} has no answer".format(character.id))
             response.add_trace((character.id, stage, 'No answer. Trace: {}'.format(trace)))
@@ -351,7 +353,7 @@ def _ask_characters(characters, request, response):
     if not response.answered:
         # pick one default response
         default_response = pickone(response.get_default_responses())
-        if default_response:
+        if default_response and default_response.get('text'):
             response.set_default_response(default_response)
 
     if not response.answered and response.responses:
@@ -364,7 +366,7 @@ def _ask_characters(characters, request, response):
 
         candicate_responses = cached_responses.get(key)
         picked_response = pickone(candicate_responses)
-        if picked_response:
+        if picked_response and picked_response.get('text'):
             response.set_default_response(picked_response)
             response.add_trace(
                 (picked_response.get('botid'), key,

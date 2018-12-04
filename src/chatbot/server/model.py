@@ -9,10 +9,11 @@ RESPONSE_TYPE_WEIGHTS = {
     'cs': 100,
     'ddg': 100,
     'pass': 100,
-    'nogoodmatch': 50,
-    'quibble': 40,
+    'es': 50,
     'gambit': 50,
-    'es': 20,
+    'quibble': 40,
+    'repeat': 30,
+    'nogoodmatch': 20,
     'markov': 5,
 }
 

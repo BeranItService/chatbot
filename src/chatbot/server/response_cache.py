@@ -61,6 +61,21 @@ class ResponseCache(object):
         self.last_answer = answer
         self.last_time = record.get('Datetime')
 
+    def update(self, idx, **kwargs):
+        if idx < 0:
+            idx = len(self.record) + idx
+        if idx < len(self.record):
+            for k, v in kwargs.iteritems():
+                self.record[idx][k] = v
+            if 'Feedback' in kwargs:
+                answer = kwargs.pop('Feedback')
+                self.record[idx]['Answer'] = answer
+                self.record[idx]['Label'] = kwargs.pop('Label', '')
+                self.last_answer = answer
+                logger.warn("Updated feedback at %s", idx)
+            return True
+        return False
+
     def rate(self, rate, idx):
         if idx < 0:
             idx = len(self.record) + idx

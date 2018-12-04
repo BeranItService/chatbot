@@ -67,7 +67,7 @@ from flask import Flask, request, Response, send_from_directory
 from chatbot.server.chatbot_agent import (
     ask, list_character, session_manager, set_weights, set_context,
     dump_history, dump_session, add_character, list_character_names,
-    rate_answer, get_context, said, remove_context, update_config)
+    rate_answer, get_context, said, remove_context, update_config, feedback)
 from chatbot.stats import history_stats
 
 json_encode = json.JSONEncoder().encode
@@ -109,6 +109,21 @@ def _chat():
         logger.exception(ex)
         raise ex
     return Response(response.toJSON(), mimetype="application/json")
+
+@app.route(ROOT + '/feedback', methods=['GET'])
+@requires_auth
+def _feedback():
+    data = request.args
+    session = data.get('session')
+    text = data.get('text')
+    label = data.get('label')
+    try:
+        ret, response = feedback(session, text, label)
+        return Response(json_encode({'ret': 0 if ret else 1, 'response': response}),
+                        mimetype="application/json")
+    except Exception as ex:
+        logger.exception(ex)
+        raise ex
 
 @app.route(ROOT + '/batch_chat', methods=['POST'])
 def _batch_chat():

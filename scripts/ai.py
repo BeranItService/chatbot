@@ -16,7 +16,7 @@ from chatbot.client import Client
 from chatbot.db import get_mongodb, MongoDB
 from chatbot.polarity import Polarity
 from dynamic_reconfigure.server import Server
-from hr_msgs.msg import Forget, ForgetAll, Assign, State
+from r2_perception.msg import Forget, ForgetAll, Assign, State
 from hr_msgs.msg import audiodata, SetGesture, Target
 from hr_msgs.msg import ChatMessage, TTS, ChatResponse, ChatResponses
 from std_msgs.msg import String
@@ -349,6 +349,10 @@ class Chatbot():
                 logger.exception(ex)
         else:
             logger.warn("No last response")
+
+        # send the response back to chat server so it's aware of what's been
+        # actually said
+        self.client.feedback(msg.text, msg.label)
 
     def reset_timer(self):
         if self.timer is not None:

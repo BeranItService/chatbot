@@ -90,6 +90,9 @@ class Session(object):
     def rate(self, rate, idx):
         return self.cache.rate(rate, idx)
 
+    def update(self, idx, **kwargs):
+        return self.cache.update(idx, **kwargs)
+
     def set_characters(self, characters):
         self.characters = characters
         for c in self.characters:

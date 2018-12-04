@@ -618,6 +618,13 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         response.ret = codes.NO_PATTERN_MATCH
         return response
 
+def feedback(sid, text, label):
+    session = session_manager.get_session(sid)
+    if session is None:
+        return False, "No session"
+    success = session.update(-1, Feedback=text, Label=label)
+    return success, "Done"
+
 def said(sid, text):
     session = session_manager.get_session(sid)
     if session is None:

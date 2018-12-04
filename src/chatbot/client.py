@@ -79,7 +79,7 @@ class Client(cmd.Cmd, object):
         self.session = None
         self.last_response = None
         self.last_response_time = None
-        self.last_actual_response = None
+        self.last_tier_response = None
         self.timer = None
         self.timeout = None
         self.weights = None
@@ -178,6 +178,24 @@ class Client(cmd.Cmd, object):
             logger.exception(ex)
         return response
 
+    def feedback(self, text, label):
+        params = {
+            "Auth": self.client_key,
+            "text": text,
+            "label": label,
+            "session": self.session,
+        }
+
+        r = requests.get('{}/feedback'.format(self.root_url), params=params)
+        if r.status_code != 200:
+            self.stdout.write("Request error: {}\n".format(r.status_code))
+
+        ret = r.json().get('ret')
+        if ret != 0:
+            self.stdout.write("Write feedback failed")
+        else:
+            self.stdout.write("Write feedback successed")
+
     def list_chatbot(self):
         params = {'Auth': self.client_key, 'lang': self.lang, 'session': self.session}
         r = requests.get(
@@ -203,7 +221,7 @@ class Client(cmd.Cmd, object):
             if not self.ignore_indicator:
                 self.process_indicator(answer)
             tier_response['text'] = norm(answer)
-            self.last_actual_response = tier_response
+            self.last_tier_response = tier_response
             if self.response_listener is None:
                 self.stdout.write('{}[by {}]: {}\n'.format(
                     self.botname, tier_response.get('botid'),
@@ -458,8 +476,8 @@ Reset the weight of tiers to their defaults.
         self.stdout.write('Ping the server\n')
 
     def do_trace(self, line):
-        if self.last_actual_response:
-            trace = self.last_actual_response.get('trace', None)
+        if self.last_tier_response:
+            trace = self.last_tier_response.get('trace', None)
             if trace:
                 if isinstance(trace, list):
                     trace = ['{}: {}: {}'.format(x, y, z) for x, y, z  in trace]

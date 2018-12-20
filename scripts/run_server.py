@@ -102,6 +102,7 @@ def _chat():
     marker = data.get('marker', 'default')
     run_id = data.get('run_id', '')
     try:
+        logger.warn("Chat request: %s", data)
         response = ask(
             question, lang, session, query,
             request_id=request_id, marker=marker, run_id=run_id)

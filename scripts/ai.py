@@ -461,9 +461,9 @@ class Chatbot():
             logger.error("Session id doesn't match")
             return
 
+        lang = response.get('Lang')
         if self.hybrid_mode:
             responses_msg = ChatResponses()
-            lang = response.get('Lang')
             responses = response.get('responses')
             all_responses = []
             for cat, trs in responses.iteritems():
@@ -497,7 +497,6 @@ class Chatbot():
 
         text = tier_response.get('text')
         emotion = tier_response.get('emotion')
-        lang = tier_response.get('lang', 'en-US')
 
         orig_text = tier_response.get('orig_text')
         if orig_text:

@@ -418,7 +418,10 @@ class Chatbot():
             'Label': msg.label,
         }
         if msg.label and '-' in msg.label:
-            botid, cat = msg.label.split('-', 2)
+            if msg.label.startswith('web'):
+                _, botid, cat = msg.label.split('-', 2)
+            else:
+                botid, cat = msg.label.split('-', 1)
             response['Category'] = cat
             response['Tier'] = botid
         df = pd.DataFrame(response, index=[0])

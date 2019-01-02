@@ -49,7 +49,7 @@ def init_logging():
     os.environ['ROS_LOG_FILENAME'] = log_config_file
     os.environ['ROS_LOG_DIR'] = SERVER_LOG_DIR
 
-    config_file = os.environ['ROS_PYTHON_LOG_CONFIG_FILE']
+    config_file = os.environ.get('ROS_PYTHON_LOG_CONFIG_FILE')
     default_config_file = os.path.join(CWD, 'python_logging.conf')
     os.environ['ROS_LOG_FILENAME'] = log_config_file
     if config_file and os.path.isfile(config_file):
@@ -67,7 +67,7 @@ from flask import Flask, request, Response, send_from_directory
 from chatbot.server.chatbot_agent import (
     ask, list_character, session_manager, set_weights, set_context,
     dump_history, dump_session, add_character, list_character_names,
-    rate_answer, get_context, said, remove_context, update_config)
+    rate_answer, get_context, said, remove_context, update_config, feedback)
 from chatbot.stats import history_stats
 
 json_encode = json.JSONEncoder().encode
@@ -101,12 +101,30 @@ def _chat():
     request_id = request.headers.get('X-Request-Id')
     marker = data.get('marker', 'default')
     run_id = data.get('run_id', '')
-    response, ret = ask(
-        question, lang, session, query,
-        request_id=request_id, marker=marker, run_id=run_id)
-    return Response(json_encode({'ret': ret, 'response': response}),
-                    mimetype="application/json")
+    try:
+        logger.warn("Chat request: %s", data)
+        response = ask(
+            question, lang, session, query,
+            request_id=request_id, marker=marker, run_id=run_id)
+    except Exception as ex:
+        logger.exception(ex)
+        raise ex
+    return Response(response.toJSON(), mimetype="application/json")
 
+@app.route(ROOT + '/feedback', methods=['GET'])
+@requires_auth
+def _feedback():
+    data = request.args
+    session = data.get('session')
+    text = data.get('text')
+    label = data.get('label')
+    try:
+        ret, response = feedback(session, text, label)
+        return Response(json_encode({'ret': 0 if ret else 1, 'response': response}),
+                        mimetype="application/json")
+    except Exception as ex:
+        logger.exception(ex)
+        raise ex
 
 @app.route(ROOT + '/batch_chat', methods=['POST'])
 def _batch_chat():

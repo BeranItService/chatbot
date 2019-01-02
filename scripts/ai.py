@@ -16,10 +16,11 @@ from chatbot.client import Client
 from chatbot.db import get_mongodb, MongoDB
 from chatbot.polarity import Polarity
 from dynamic_reconfigure.server import Server
-from hr_msgs.msg import Forget, ForgetAll, Assign, State
-from hr_msgs.msg import audiodata, SetGesture, Target, ChatMessage, TTS
-from jinja2 import Template
+from r2_perception.msg import Forget, ForgetAll, Assign, State
+from hr_msgs.msg import audiodata, SetGesture, Target
+from hr_msgs.msg import ChatMessage, TTS, ChatResponse, ChatResponses
 from std_msgs.msg import String
+from jinja2 import Template
 import dynamic_reconfigure
 import dynamic_reconfigure.client
 
@@ -27,6 +28,8 @@ logger = logging.getLogger('hr.chatbot.ai')
 HR_CHATBOT_AUTHKEY = os.environ.get('HR_CHATBOT_AUTHKEY', 'AAAAB3NzaC')
 HR_CHATBOT_REQUEST_DIR = os.environ.get('HR_CHATBOT_REQUEST_DIR') or \
     os.path.expanduser('~/.hr/chatbot/requests')
+HR_CHATBOT_RESPONSE_DIR = os.environ.get('HR_CHATBOT_RESPONSE_DIR') or \
+    os.path.expanduser('~/.hr/chatbot/responses')
 ROBOT_NAME = os.environ.get('NAME', 'default')
 count = 0
 
@@ -80,6 +83,7 @@ class Chatbot():
         self.mute = False
         self.insert_behavior = False
         self.enable_face_recognition = False
+        self.hybrid_mode = False
         self._locker = Locker()
         try:
             self.mongodb = get_mongodb()
@@ -87,12 +91,18 @@ class Chatbot():
             self.mongodb = MongoDB()
 
         self.node_name = rospy.get_name()
-        self.output_dir = os.path.join(HR_CHATBOT_REQUEST_DIR,
+        self.request_dir = os.path.join(HR_CHATBOT_REQUEST_DIR,
             dt.datetime.strftime(dt.datetime.utcnow(), '%Y%m%d'))
-        if not os.path.isdir(self.output_dir):
-            os.makedirs(self.output_dir)
+        if not os.path.isdir(self.request_dir):
+            os.makedirs(self.request_dir)
+        self.response_dir = os.path.join(HR_CHATBOT_RESPONSE_DIR,
+            dt.datetime.strftime(dt.datetime.utcnow(), '%Y%m%d'))
+        if not os.path.isdir(self.response_dir):
+            os.makedirs(self.response_dir)
         self.requests_fname = os.path.join(
-            self.output_dir, '{}.csv'.format(str(uuid.uuid1())))
+            self.request_dir, '{}.csv'.format(str(uuid.uuid1())))
+        self.responses_fname = os.path.join(
+            self.response_dir, '{}.csv'.format(str(uuid.uuid1())))
 
         self.input_stack = []
         self.timer = None
@@ -112,8 +122,13 @@ class Chatbot():
         self.tts_ctrl_pub = rospy.Publisher(
             'tts_control', String, queue_size=1)
 
+        self._responses_publisher = rospy.Publisher(
+            'chatbot_responses', ChatResponses, queue_size=1)
+        # receive user's choice
+        rospy.Subscriber('chatbot_response', ChatResponse, self._response_callback)
+        # send to tts
         self._response_publisher = rospy.Publisher(
-            'chatbot_responses', TTS, queue_size=1)
+            'tts', TTS, queue_size=1)
 
         # send communication non-verbal blink message to behavior
         self._blink_publisher = rospy.Publisher(
@@ -282,9 +297,6 @@ class Chatbot():
             self.tts_ctrl_pub.publish("shutup")
             rospy.sleep(0.5)
             self._affect_publisher.publish(String('sad'))
-            if not self.mute:
-                self._response_publisher.publish(
-                    TTS(text='Okay', lang=chat_message.lang))
             return
         if self.speech:
             logger.warn("In speech, ignore the question")
@@ -319,6 +331,28 @@ class Chatbot():
             self.reset_timer()
         else:
             self.ask([chat_message])
+
+    def _response_callback(self, msg):
+        logger.info("Get response msg %s", msg)
+        text = msg.text
+        text = re.sub(r"""\[callback.*\]""", '', text)
+        logger.warn('Send to TTS "%s"', text)
+        self._response_publisher.publish(TTS(text=text, lang=msg.lang))
+        if self.client.last_response and self.client.last_response_time:
+            request_id = self.client.last_response.get('RequestId')
+            elapse = dt.datetime.utcnow() - self.client.last_response_time
+            if elapse.total_seconds() > 10: # don't record request id for late coming msg
+                request_id = ''
+            try:
+                self.write_response(request_id, msg)
+            except Exception as ex:
+                logger.exception(ex)
+        else:
+            logger.warn("No last response")
+
+        # send the response back to chat server so it's aware of what's been
+        # actually said
+        self.client.feedback(msg.text, msg.label)
 
     def reset_timer(self):
         if self.timer is not None:
@@ -374,6 +408,31 @@ class Chatbot():
             columns=columns)
         logger.info("Write request to {}".format(self.requests_fname))
 
+    def write_response(self, request_id, msg):
+        columns = ['Datetime', 'RequestId', 'Answer', 'Lang', 'Category', 'Tier', 'Label']
+        response = {
+            'Datetime':  dt.datetime.utcnow(),
+            'RequestId': request_id,
+            'Answer': msg.text,
+            'Lang': msg.lang,
+            'Label': msg.label,
+        }
+        if msg.label and '-' in msg.label:
+            if msg.label.startswith('web'):
+                _, botid, cat = msg.label.split('-', 2)
+            else:
+                botid, cat = msg.label.split('-', 1)
+            response['Category'] = cat
+            response['Tier'] = botid
+        df = pd.DataFrame(response, index=[0])
+        if not os.path.isfile(self.responses_fname):
+            with open(self.responses_fname, 'w') as f:
+                f.write(','.join(columns))
+                f.write('\n')
+        df.to_csv(self.responses_fname, mode='a', index=False, header=False,
+            columns=columns)
+        logger.warn("Write response to {}".format(self.responses_fname))
+
     def handle_control(self, response):
         t = Template(response)
         if hasattr(t.module, 'delay'):
@@ -405,16 +464,44 @@ class Chatbot():
             logger.error("Session id doesn't match")
             return
 
-        logger.info("Get response {}".format(response))
+        lang = response.get('Lang')
+        if self.hybrid_mode:
+            responses_msg = ChatResponses()
+            responses = response.get('responses')
+            all_responses = []
+            for cat, trs in responses.iteritems():
+                if cat == '_DEFAULT_': continue
+                for tr in trs:
+                    tr['cat'] = cat
+                    all_responses.append(tr)
+            all_responses = sorted(all_responses, key=lambda x: x.get('cweight', 0))
+            for r in all_responses:
+                response_msg = ChatResponse()
+                response_msg.text = str(r.get('text'))
+                response_msg.lang = str(lang)
+                botid = r.get('botid')
+                cat = r.get('cat')
+                label = str('%s-%s' % (botid, cat))
+                response_msg.label = label
+                responses_msg.responses.append(response_msg)
+                logger.warn("Add response %s", response_msg)
+            self._responses_publisher.publish(responses_msg)
+            logger.info("Pulished responses in hybrid mode")
+            return
+
+        tier_response = response['default_response']
+        if not tier_response:
+            return
+
+        logger.info("Get response {}".format(tier_response))
 
         #for k, v in response.iteritems():
         #    rospy.set_param('{}/response/{}'.format(self.node_name, k), v)
 
-        text = response.get('text')
-        emotion = response.get('emotion')
-        lang = response.get('lang', 'en-US')
+        text = tier_response.get('text')
+        emotion = tier_response.get('emotion')
 
-        orig_text = response.get('orig_text')
+        orig_text = tier_response.get('orig_text')
         if orig_text:
             try:
                 self.handle_control(orig_text)
@@ -484,7 +571,7 @@ class Chatbot():
         if not self.mute:
             self._blink_publisher.publish('chat_saying')
             log_data = {}
-            log_data.update(response)
+            log_data.update(tier_response)
             log_data['performance_report'] = True
             logger.warn('Chatbot response: %s', text, extra={'data': log_data})
             self._response_publisher.publish(TTS(text=text, lang=lang))
@@ -532,6 +619,9 @@ class Chatbot():
         self.enable = config.enable
         if not self.enable:
             self.client.cancel_timer()
+        self.hybrid_mode = config.hybrid_mode
+        if self.hybrid_mode:
+            logger.warn("Enabled hybrid mode")
         self.delay_response = config.delay_response
         self.delay_time = config.delay_time
         self.client.ignore_indicator = config.ignore_indicator

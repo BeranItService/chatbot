@@ -1,0 +1,3 @@
+bunch
+numpy
+num2words

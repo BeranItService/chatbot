@@ -339,8 +339,12 @@ def _ask_characters(characters, request, response):
     while wcs:
         c, weight = wcs.pop(0)
         if not response.answered or not c.lazy:
-            answered, _response = _ask_character(
-                'loop', c, request, response)
+            try:
+                answered, _response = _ask_character(
+                    'loop', c, request, response)
+            except Exception as ex:
+                logger.exception(ex)
+                continue
             _response['weight'] = weight
             trace = _response.get('trace')
             if answered:

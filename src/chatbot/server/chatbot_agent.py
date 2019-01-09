@@ -32,7 +32,6 @@ FALLBACK_LANG = 'en-US'
 
 from chatbot.utils import str_cleanup, do_translate, norm2
 from chatbot.server.character import TYPE_AIML, TYPE_CS
-from chatbot.server.template import render
 from model import Response, Request, RESPONSE_TYPE_WEIGHTS
 import codes
 

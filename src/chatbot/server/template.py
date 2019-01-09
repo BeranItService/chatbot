@@ -1,4 +1,5 @@
 import os
+import re
 from jinja2 import Template, Environment, meta
 import jinja2
 from renderers import *
@@ -40,6 +41,16 @@ def get_render_func(ast):
     if not func and variables:
         logger.error("Render is not found for template {}".format(string))
     return func
+
+def render_template(answer):
+    if answer and re.match('.*{.*}.*', answer):
+        logger.info("Template answer {}".format(answer))
+        render_result = render(answer)
+        answer = render_result['render_result']
+        if re.search('{.*}', answer):
+            logger.error("answer contains illegal characters")
+            answer = re.sub('{.*}', '', answer)
+    return answer
 
 if __name__ == '__main__':
     string = """aa {% set lineno = "file:123" %}{% set lineno2 = "file2:123" %}"""

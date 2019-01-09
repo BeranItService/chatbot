@@ -1,6 +1,7 @@
 import bunch
 from codes import CODES
 import logging
+from template import render_template
 logger = logging.getLogger('hr.chatbot.server.model')
 
 RESPONSE_TYPE_WEIGHTS = {
@@ -37,8 +38,19 @@ class Response(bunch.Bunch):
         self.default_response = None
         self._default_category = '_DEFAULT_'
 
+    def render_response(self, response):
+        text = response.get('text')
+        try:
+            response['orig_text'] = text
+            text = render_template(text)
+            response['text'] = text
+        except Exception as ex:
+            logger.error("Rendering template error %s", ex)
+            response['text'] = ''
+
     def add_response(self, category, response):
         logger.info("Add response %s %s", category, response)
+        self.render_response(response)
         response['cweight'] = RESPONSE_TYPE_WEIGHTS.get(category, 0)
         if category in self.responses:
             self.responses[category].append(response)
@@ -57,6 +69,7 @@ class Response(bunch.Bunch):
 
     def set_default_response(self, response):
         self.default_response = response
+        self.render_response(response)
 
     def add_trace(self, trace):
         self.trace.append(trace)

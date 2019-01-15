@@ -40,7 +40,7 @@ def init_logging():
     if not os.path.isdir(SERVER_LOG_DIR):
         os.makedirs(SERVER_LOG_DIR)
     log_config_file = '{}/{}.log'.format(SERVER_LOG_DIR,
-        dt.datetime.strftime(dt.datetime.utcnow(), '%Y%m%d%H%M%S'))
+        'chatbot_server-%s' % dt.datetime.strftime(dt.datetime.utcnow(), '%Y%m%d%H%M%S'))
     link_log_fname = os.path.join(SERVER_LOG_DIR, 'latest.log')
     if os.path.islink(link_log_fname):
         os.unlink(link_log_fname)

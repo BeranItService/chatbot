@@ -25,7 +25,7 @@ import dynamic_reconfigure
 import dynamic_reconfigure.client
 
 logger = logging.getLogger('hr.chatbot.ai')
-report_logger = logging.getLogger('hr.chatbot.report')
+report_logger = logging.getLogger('hr.chatbot.ai.report')
 HR_CHATBOT_AUTHKEY = os.environ.get('HR_CHATBOT_AUTHKEY', 'AAAAB3NzaC')
 HR_CHATBOT_REQUEST_DIR = os.environ.get('HR_CHATBOT_REQUEST_DIR') or \
     os.path.expanduser('~/.hr/chatbot/requests')
@@ -433,6 +433,7 @@ class Chatbot():
         df.to_csv(self.responses_fname, mode='a', index=False, header=False,
             columns=columns)
         logger.warn("Write response to {}".format(self.responses_fname))
+        report_logger.warn('Chatbot hybrid response', extra={'data': response})
 
     def handle_control(self, response):
         t = Template(response)
@@ -574,7 +575,7 @@ class Chatbot():
             log_data = {}
             log_data.update(tier_response)
             log_data['performance_report'] = True
-            report_logger.warn('Chatbot response: %s', text, extra={'data': log_data})
+            report_logger.warn('Chatbot autonomous response: %s', text, extra={'data': log_data})
             self._response_publisher.publish(TTS(text=text, lang=lang))
 
         if rospy.has_param('{}/context'.format(self.node_name)):

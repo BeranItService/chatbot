@@ -573,10 +573,6 @@ class Chatbot():
 
         if not self.mute:
             self._blink_publisher.publish('chat_saying')
-            log_data = {}
-            log_data.update(tier_response)
-            log_data['performance_report'] = True
-            report_logger.warn('Chatbot autonomous response: %s', text, extra={'data': log_data})
             self._response_publisher.publish(TTS(text=text, lang=lang))
 
         if rospy.has_param('{}/context'.format(self.node_name)):

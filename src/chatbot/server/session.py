@@ -13,6 +13,7 @@ from chatbot.server.character import TYPE_AIML
 from chatbot.db import get_mongodb, MongoDB
 
 logger = logging.getLogger('hr.chatbot.server.session')
+report_logger = logging.getLogger('hr.chatbot.server.session.report')
 
 try:
     mongodb = get_mongodb()
@@ -79,7 +80,7 @@ class Session(object):
 
     def add(self, record):
         if not self.closed:
-            logger.info("chatbot_log", extra={'data': record})
+            report_logger.warn("chatbot_log", extra={'data': record})
             self.cache.add(record)
             self.dump()
             self.last_active_time = self.cache.last_time

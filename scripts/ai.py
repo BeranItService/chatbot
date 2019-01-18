@@ -408,7 +408,7 @@ class Chatbot():
         df.to_csv(self.requests_fname, mode='a', index=False, header=False,
             columns=columns)
         logger.info("Write request to {}".format(self.requests_fname))
-        report_logger.warn("Write request", extra_data={'data': requests})
+        report_logger.warn("Write request", extra={'data': requests})
 
     def write_response(self, request_id, msg):
         columns = ['Datetime', 'RequestId', 'Answer', 'Lang', 'Category', 'Tier', 'Label']

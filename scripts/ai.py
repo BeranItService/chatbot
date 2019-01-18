@@ -25,6 +25,7 @@ import dynamic_reconfigure
 import dynamic_reconfigure.client
 
 logger = logging.getLogger('hr.chatbot.ai')
+report_logger = logging.getLogger('hr.chatbot.report')
 HR_CHATBOT_AUTHKEY = os.environ.get('HR_CHATBOT_AUTHKEY', 'AAAAB3NzaC')
 HR_CHATBOT_REQUEST_DIR = os.environ.get('HR_CHATBOT_REQUEST_DIR') or \
     os.path.expanduser('~/.hr/chatbot/requests')
@@ -573,7 +574,7 @@ class Chatbot():
             log_data = {}
             log_data.update(tier_response)
             log_data['performance_report'] = True
-            logger.warn('Chatbot response: %s', text, extra={'data': log_data})
+            report_logger.warn('Chatbot response: %s', text, extra={'data': log_data})
             self._response_publisher.publish(TTS(text=text, lang=lang))
 
         if rospy.has_param('{}/context'.format(self.node_name)):

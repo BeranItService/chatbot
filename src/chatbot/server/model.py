@@ -4,6 +4,34 @@ import logging
 from template import render_template
 logger = logging.getLogger('hr.chatbot.server.model')
 
+# response quality ranking system
+EXCELLENT = 100
+VERY_GOOD = 90
+GOOD = 80
+FAIR = 50
+POOR = 30
+REPEAT = 30
+BAD = 20
+VERY_BAD = 10
+
+RESPONSE_SCORE_NAMES = {
+    EXCELLENT: 'EXCELLENT',
+    VERY_GOOD: 'VERY GOOD',
+    GOOD: 'GOOD',
+    FAIR: 'FIAR',
+    POOR: 'POOR',
+    REPEAT: 'REPEAT',
+    BAD: 'BAD',
+    VERY_BAD: 'VERY BAD',
+    'EXCELLENT': EXCELLENT,
+    'VERY_GOOD': VERY_GOOD,
+    'GOOD': GOOD,
+    'FAIR': FAIR,
+    'POOR': POOR,
+    'BAD': BAD,
+    'VERY_BAD': VERY_BAD,
+}
+
 RESPONSE_TYPE_WEIGHTS = {
     '_DEFAULT_': 100,
     'sc': 100,

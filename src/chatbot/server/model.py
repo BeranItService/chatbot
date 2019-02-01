@@ -58,6 +58,17 @@ class Request(bunch.Bunch):
     def __str__(self):
         return self.toJSON()+'\n'
 
+class TierResponse(bunch.Bunch):
+    def __init__(self, botid='', botname='', text='', trace='', score=0):
+        self.botid = botid
+        self.botname = botname
+        self.text = text
+        self.trace = trace
+        self.score = score
+
+    def __str__(self):
+        return self.toJSON()+'\n'
+
 class Response(bunch.Bunch):
     def __init__(self):
         self.ret = 0
@@ -111,10 +122,12 @@ class Response(bunch.Bunch):
 
 if __name__ == '__main__':
     response = Response()
-    response.add_response('stage1', 'response')
-    response.add_response('stage1', 'response2')
-    response.add_response('stage2', 'response3')
-    response.set_default_response('response4')
+    tier_response = TierResponse(text='response')
+    tier_response2 = TierResponse(text='response2')
+    default_response = TierResponse(text='default response')
+    response.add_response('stage1', tier_response)
+    response.add_response('stage2', tier_response2)
+    response.set_default_response(default_response)
     print response.toJSON()
     print response.toYAML()
     print response.answered

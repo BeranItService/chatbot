@@ -14,7 +14,7 @@ REPEAT = 30
 BAD = 20
 VERY_BAD = 10
 
-RESPONSE_SCORE_NAMES = {
+_response_score_names = {
     EXCELLENT: 'EXCELLENT',
     VERY_GOOD: 'VERY GOOD',
     GOOD: 'GOOD',
@@ -31,6 +31,19 @@ RESPONSE_SCORE_NAMES = {
     'BAD': BAD,
     'VERY_BAD': VERY_BAD,
 }
+
+def check_score(score):
+    """check and return the valid score"""
+    if isinstance(score, int) and 0<=score<=100:
+        ret = level
+    elif str(score) == score:
+        if score not in _response_score_names:
+            raise ValueError("Unknown score name: %s" % score)
+        ret = _response_score_names[score]
+    else:
+        raise ValueError(
+            "score is not an integer in the range 0-100 or a string: %s" % score)
+    return ret
 
 RESPONSE_TYPE_WEIGHTS = {
     '_DEFAULT_': 100,

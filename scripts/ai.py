@@ -390,25 +390,17 @@ class Chatbot():
                 'Confidence': msg.confidence,
             }
             requests.append(request)
-        if self.mongodb.client is not None:
-            try:
-                mongocollection = self.mongodb.client[self.mongodb.dbname][ROBOT_NAME]['chatbot']['requests']
-                result = mongocollection.insert_many(requests)
-                logger.info("Added requests to mongodb")
-            except Exception as ex:
-                self.mongodb.client = None
-                logger.error(traceback.format_exc())
-                logger.warn("Deactivate mongodb")
 
-        df = pd.DataFrame(requests)
-        if not os.path.isfile(self.requests_fname):
-            with open(self.requests_fname, 'w') as f:
-                f.write(','.join(columns))
-                f.write('\n')
-        df.to_csv(self.requests_fname, mode='a', index=False, header=False,
-            columns=columns)
-        logger.info("Write request to {}".format(self.requests_fname))
-        report_logger.warn("Write request", extra={'data': requests})
+        if requests:
+            df = pd.DataFrame(requests)
+            if not os.path.isfile(self.requests_fname):
+                with open(self.requests_fname, 'w') as f:
+                    f.write(','.join(columns))
+                    f.write('\n')
+            df.to_csv(self.requests_fname, mode='a', index=False, header=False,
+                columns=columns)
+            logger.info("Write request to {}".format(self.requests_fname))
+            report_logger.warn("Write request", extra={'data': requests[0]}) # Workaround: ES doesn't support array. Log the first request for now
 
     def write_response(self, request_id, msg):
         columns = ['Datetime', 'RequestId', 'Answer', 'Lang', 'Category', 'Tier', 'Label']

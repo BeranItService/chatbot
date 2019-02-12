@@ -353,7 +353,7 @@ class Chatbot():
 
         # send the response back to chat server so it's aware of what's been
         # actually said
-        self.client.feedback(msg.text, msg.label)
+        self.client.feedback(msg.text, msg.label, msg.lang)
 
     def reset_timer(self):
         if self.timer is not None:

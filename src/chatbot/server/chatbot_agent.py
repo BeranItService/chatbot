@@ -624,11 +624,20 @@ def ask(question, lang, sid, query=False, request_id=None, **kwargs):
         response.ret = codes.NO_PATTERN_MATCH
         return response
 
-def feedback(sid, text, label):
+def feedback(sid, text, label, lang):
     session = session_manager.get_session(sid)
     if session is None:
         return False, "No session"
     success = session.update(-1, Feedback=text, Label=label)
+
+    # feedback to characters
+    characters = get_responding_characters(lang, sid)
+    for c in characters:
+        if c.stateful:
+            try:
+                c.set_context(session, {'whatsaid': text})
+            except NotImplementedError:
+                pass
     return success, "Done"
 
 def said(sid, text):

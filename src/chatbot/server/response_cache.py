@@ -64,7 +64,7 @@ class ResponseCache(object):
     def update(self, idx, **kwargs):
         if idx < 0:
             idx = len(self.record) + idx
-        if idx < len(self.record):
+        if idx >= 0 and idx < len(self.record):
             for k, v in kwargs.iteritems():
                 self.record[idx][k] = v
             if 'Feedback' in kwargs:

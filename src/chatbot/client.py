@@ -178,12 +178,13 @@ class Client(cmd.Cmd, object):
             logger.exception(ex)
         return response
 
-    def feedback(self, text, label):
+    def feedback(self, text, label, lang):
         params = {
             "Auth": self.client_key,
             "text": text,
             "label": label,
             "session": self.session,
+            "lang": lang,
         }
 
         r = requests.get('{}/feedback'.format(self.root_url), params=params)

@@ -118,8 +118,9 @@ def _feedback():
     session = data.get('session')
     text = data.get('text')
     label = data.get('label')
+    lang = data.get('lang')
     try:
-        ret, response = feedback(session, text, label)
+        ret, response = feedback(session, text, label, lang)
         return Response(json_encode({'ret': 0 if ret else 1, 'response': response}),
                         mimetype="application/json")
     except Exception as ex:
